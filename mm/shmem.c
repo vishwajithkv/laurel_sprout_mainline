@@ -92,6 +92,10 @@ static struct vfsmount *shm_mnt __ro_after_init;
 
 #include "internal.h"
 
+#ifdef CONFIG_MEMFD_ASHMEM_SHIM
+#include "memfd-ashmem-shim.h"
+#endif
+
 #ifdef CONFIG_ASHMEM
 #include "../drivers/staging/android/ashmem.h"
 #endif
@@ -5320,6 +5324,11 @@ static const struct file_operations shmem_file_operations = {
 	.unlocked_ioctl	= shmem_ashmem_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl	= shmem_ashmem_ioctl,
+#endif
+#elif defined(CONFIG_MEMFD_ASHMEM_SHIM)
+	.unlocked_ioctl	= memfd_ashmem_shim_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= memfd_ashmem_shim_compat_ioctl,
 #endif
 #endif
 };
