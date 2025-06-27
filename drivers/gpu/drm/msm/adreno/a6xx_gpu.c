@@ -716,7 +716,7 @@ static int a6xx_calc_ubwc_config(struct adreno_gpu *gpu)
 	cfg->highest_bank_bit = 15;
 
 	if (adreno_is_a610(gpu)) {
-		cfg->highest_bank_bit = 13;
+		cfg->highest_bank_bit = 14;
 		cfg->ubwc_swizzle = 0x7;
 	}
 
