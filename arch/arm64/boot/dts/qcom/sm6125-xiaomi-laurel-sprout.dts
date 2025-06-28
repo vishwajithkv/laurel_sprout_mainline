@@ -600,3 +600,10 @@
 	status = "okay";
 };
 
+&gpu {
+	status = "okay";
+
+	zap-shader {
+		firmware-name = "qcom/sm6125/xiaomi/laurel/a610_zap.mbn";
+	};
+};
