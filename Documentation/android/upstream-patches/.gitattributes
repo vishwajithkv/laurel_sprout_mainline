@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Preserve verbatim mail patches, including their context-line prefixes.
+*.patch -whitespace
