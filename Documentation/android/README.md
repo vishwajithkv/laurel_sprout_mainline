@@ -27,6 +27,9 @@ dependencies must be resolved by the maintainer's `olddefconfig`.
 The existing compiled artifacts used ARM64 `defconfig`; they do not contain
 this config migration or the F2FS security-label fix.
 
+For a minimal framebuffer/ADB boot, use [the first-boot profile](FIRST_BOOT.md).
+It disables optional probing while preserving core hardware and reservations.
+
 ## Contents
 
 - `arch/arm64/configs/laurel_pmos_defconfig`: migrated distribution baseline.

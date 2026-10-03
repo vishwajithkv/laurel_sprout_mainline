@@ -10,6 +10,7 @@ repacked boot candidates returned to fastboot. Kernel boot, ADB and device
 hardware support have not been established. The latest config requires
 a new maintainer build.
 
+- [Minimal first-boot profile](Documentation/android/FIRST_BOOT.md)
 - [Build, Android integration and known gaps](Documentation/android/README.md)
 - [Boot failures and documentation audit](Documentation/android/BOOT_AUDIT.md)
 - [Pinned sources and config checksums](Documentation/android/config-sources.json)

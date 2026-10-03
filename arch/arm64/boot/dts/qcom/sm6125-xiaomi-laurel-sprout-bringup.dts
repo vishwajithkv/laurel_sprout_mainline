@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/* First-boot profile: retain the bootloader framebuffer and core hardware. */
+
+#include "sm6125-xiaomi-laurel-sprout.dts"
+
+/* Native display/GPU takeover is enabled after a kernel log and ADB work. */
+&adreno_smmu {
+	status = "disabled";
+};
+
+&dispcc {
+	status = "disabled";
+};
+
+&gmu_wrapper {
+	status = "disabled";
+};
+
+&gpu {
+	status = "disabled";
+};
+
+&gpucc {
+	status = "disabled";
+};
+
+&mdss {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+&mdss_dsi0_phy {
+	status = "disabled";
+};
+
+/* Touch and removable storage are not required for the first ADB boot. */
+&gpi_dma0 {
+	status = "disabled";
+};
+
+&gpi_dma1 {
+	status = "disabled";
+};
+
+&i2c2 {
+	status = "disabled";
+};
+
+&pm6125_rtc {
+	status = "disabled";
+};
+
+&qupv3_id_0 {
+	status = "disabled";
+};
+
+&sdhc_1 {
+	status = "disabled";
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+&ts_vdd_supply {
+	status = "disabled";
+};
