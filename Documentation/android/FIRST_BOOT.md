@@ -2,7 +2,7 @@
 # First 6.18 boot: maintainer validation
 
 Target: match the 6.15 Android boot milestone before enabling other hardware.
-No 6.18 build or boot result is established yet. Builds and installation are
+No successful 6.18 build or boot is verified yet. Builds and installation are
 performed by the maintainer; collect the results before claiming success.
 
 1. Build a complete 6.18 artifact set with the documented LLVM toolchain.

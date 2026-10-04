@@ -20,7 +20,14 @@ The 17 hardware changes are accounted for in `patch-provenance.json`:
 two UFS fixes were already upstream. Context/API adaptations are documented
 in the carried commits. The connectivity branch's additional work is deferred.
 
-This migration is source-prepared, not compiled or boot-tested. Its acceptance
+The first maintainer build failed in F2FS: ACK's read-lock hook references
+`read_waiters` even when `F2FS_UNFAIR_RWSEM` is disabled. The board fragment
+now enables that option, matching Google's GKI config, with `BLK_CGROUP=y`.
+The resolved build config also omitted Binder because ACK now requires
+`EVENT_TRACING`. The fragment enables `FTRACE` and `FTRACE_SYSCALLS` to select
+the tracing dependency. Both corrections require a maintainer rebuild.
+
+This migration has not completed a build or been boot-tested. Its acceptance
 target is the existing 6.15 Android boot milestone: recovery, USB ADB,
 `sys.boot_completed=1` and Settings through scrcpy. Android 16 compatibility
 must be demonstrated on the phone; ACK's Android 17 release provenance does
@@ -31,8 +38,8 @@ not establish it.
 ACK supplies Android Binder, USB gadget uevents, dm-default-key and inline
 encryption support. Do not apply the old USB uevent patch a second time.
 
-ACK's ashmem and memfd ioctl path depends on Rust. The established Lineage
-kernel build does not configure a kernel Rust toolchain. Retain the authored
+ACK's ashmem and memfd ioctl path depends on Rust. This bringup profile keeps
+Rust disabled, matching the established 6.15 configuration. Retain the authored
 Isaac J. Manjarres C memfd shim from the 6.15 bringup, adapted to coexist
 with ACK's dispatcher. `MEMFD_ASHMEM_SHIM` depends on `!ASHMEM`; first boot
 uses `RUST=n`, `ASHMEM=n`, `MEMFD_CREATE=y`, `MEMFD_ASHMEM_SHIM=y` and
