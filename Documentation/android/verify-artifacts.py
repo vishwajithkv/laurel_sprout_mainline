@@ -40,11 +40,11 @@ def check_config(out):
         USB USB_GADGET USB_DWC3 USB_DWC3_QCOM USB_DWC3_DUAL_ROLE
         PHY_QCOM_QUSB2 USB_ROLE_SWITCH TYPEC_QCOM_PMIC REGULATOR_QCOM_USB_VBUS
         USB_CONFIGFS USB_CONFIGFS_F_FS ANDROID_USB_CONFIGFS_UEVENT
-        MODULES MODULE_COMPRESS_NONE PSTORE PSTORE_RAM PSTORE_CONSOLE PSTORE_PMSG
+        MODULES PSTORE PSTORE_RAM PSTORE_CONSOLE PSTORE_PMSG
     """.split()
     for symbol in builtins:
         require(config.get(symbol) == "y", f"CONFIG_{symbol} must be built in; found {config.get(symbol, 'n')}")
-    for symbol in "RUST ASHMEM DRM_MSM TOUCHSCREEN_EDT_FT5X06 MMC RTC_DRV_PM8XXX REMOTEPROC SND BT WLAN DRM_CLIENT_LOG".split():
+    for symbol in "RUST ASHMEM MODULE_COMPRESS DRM_MSM TOUCHSCREEN_EDT_FT5X06 MMC RTC_DRV_PM8XXX REMOTEPROC SND BT WLAN DRM_CLIENT_LOG".split():
         require(config.get(symbol, "n") == "n", f"CONFIG_{symbol} must remain disabled for first boot")
     require(config.get("ANDROID_BINDER_DEVICES") == '"binder,hwbinder,vndbinder"', "Unexpected Binder device names")
     return config
