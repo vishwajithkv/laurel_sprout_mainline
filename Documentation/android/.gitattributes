@@ -1,0 +1,2 @@
+# Patch context contains intentional leading/trailing spaces.
+*.patch -whitespace

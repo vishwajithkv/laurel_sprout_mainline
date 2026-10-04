@@ -1,0 +1,164 @@
+{
+  "base": "926a323dc2667901ddcf1d5b024b82eb00aa89cc",
+  "donor": "https://gitlab.postmarketos.org/SzczurekYT/linux.git",
+  "patches": [
+    {
+      "original_commit": "3a81f80727b32e66882a75d6df0b1fdc60bdaba8",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 01/17] dt-bindings: input: touchscreen: edt-ft5x06: Document  FT3518 support",
+      "author_date": "Mon, 2 Jun 2025 10:48:23 +0200",
+      "status": "carried",
+      "commit": "f4ce287c72ca6d91919f84722e772dd1244d82a7"
+    },
+    {
+      "original_commit": "a47ece387630541cf241093e56e266da08d153f6",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 02/17] Input: edt-ft5x06 - add support for FocalTech FT3518",
+      "author_date": "Sat, 28 Sep 2024 19:34:20 +0200",
+      "status": "carried",
+      "commit": "5d4d1ee539ff831e0dc238f101ee07e07907f0b7"
+    },
+    {
+      "original_commit": "beaf847d2ac9be25ed2739e6ed2c1b8c150d385b",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 03/17] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Add  Focaltech FT3518 touchscreen",
+      "author_date": "Sat, 28 Sep 2024 19:34:42 +0200",
+      "status": "carried",
+      "commit": "624e4106c61303818bdcd796875a6d333da7f722"
+    },
+    {
+      "original_commit": "3f85921c5ab367a0ff61e2017a1ee743704c013c",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 04/17] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Add USB  OTG support and pmi632 type-c node",
+      "author_date": "Wed, 2 Oct 2024 12:00:17 +0200",
+      "status": "carried",
+      "commit": "69132cc911a6d58116b52489c55dc03d0570f034"
+    },
+    {
+      "original_commit": "fc1fc5daffcd41ff437685835845d6f5bcdaf4fe",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 05/17] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Correct  reserved memory regions",
+      "author_date": "Wed, 22 Jan 2025 17:25:08 +0100",
+      "status": "carried",
+      "commit": "82e27452f56e5407dfee189de6017891ef69fd6d"
+    },
+    {
+      "original_commit": "1d38f386fddbcc64342233ba51ae864b4da955f8",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 06/17] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Add RTC  and enable it",
+      "author_date": "Sat, 25 Jan 2025 13:34:54 +0100",
+      "status": "carried",
+      "commit": "c13954881ad542be4311c911b98f7440f885f7a3"
+    },
+    {
+      "original_commit": "5e49e076313a117d62399a2269c0923b2b76c1d7",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 07/17] clk: qcom: dispcc-sm6125: Do not use parking clk_ops  for MDSS",
+      "author_date": "Fri, 21 Feb 2025 14:18:59 +0100",
+      "status": "carried",
+      "commit": "e3c3f61ce7cb528e52938595d25fd3cd4e1836f8"
+    },
+    {
+      "original_commit": "43a1dd20d4f12e1a2fbfb934ad20c05d779d0c4e",
+      "author": "Ziqi Chen <quic_ziqichen@quicinc.com>",
+      "subject": "[PATCH 08/17] scsi: ufs: qcom: Check gear against max gear in vop  freq_to_gear()",
+      "author_date": "Thu, 22 May 2025 10:15:35 +0800",
+      "status": "already-upstream",
+      "ack_commit": "663d0c19f3acc0d697f623d34b8eb3b438bf2bda"
+    },
+    {
+      "original_commit": "543e0a90d7ecf4bc61d9b3d9050124b30bd5ff95",
+      "author": "Can Guo <quic_cang@quicinc.com>",
+      "subject": "[PATCH 09/17] scsi: ufs: qcom: Map devfreq OPP freq to UniPro Core  Clock freq",
+      "author_date": "Thu, 22 May 2025 10:15:36 +0800",
+      "status": "already-upstream",
+      "ack_commit": "8c5bcb3daeef9bc54c9939c36dca9a626126eb59"
+    },
+    {
+      "original_commit": "e4c7e21624e90011472780d14dbeb20b9ea34476",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 10/17] dt-bindings: display: panel: Add Samsung S6E8FCO",
+      "author_date": "Fri, 25 Jul 2025 10:52:31 +0200",
+      "status": "carried",
+      "commit": "530851307ac241642b048e7d1b1f256512631961"
+    },
+    {
+      "original_commit": "0cc8006589bbb13a5caffd790ba90c6b79df8df0",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 11/17] drivers: gpu: drm: panel: Add Samsung S6E8FCO",
+      "author_date": "Tue, 24 Jun 2025 09:33:40 +0200",
+      "status": "carried",
+      "commit": "76661694bc6f4d3157d99fe4d60a7bf67850a2e5"
+    },
+    {
+      "original_commit": "5cb3d7dd71a1fe19be64c19c8aece012fbfd833e",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 12/17] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Enable  MDSS and add panel",
+      "author_date": "Tue, 24 Jun 2025 09:33:55 +0200",
+      "status": "carried",
+      "commit": "e10c8e593ee9aca91b2607c0779eaeaf872050aa"
+    },
+    {
+      "original_commit": "fef74fa8893eb04872d7989d74be57b2bdf028e4",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 13/17] arm64: dts: qcom: sm6125: Add GPU clock controller",
+      "author_date": "Sat, 18 Jan 2025 22:32:53 +0100",
+      "status": "carried",
+      "commit": "79c830db5e5210175646a30cc16ae891b16b2cba"
+    },
+    {
+      "original_commit": "d9b36fe7568e2fd6a17bcc8181e6bbddf547a514",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 14/17] iommu/arm-smmu-qcom: Add SM6125 MDSS compatible",
+      "author_date": "Sat, 28 Jun 2025 11:46:46 +0200",
+      "status": "carried",
+      "commit": "c2d25e99445c41eeb82ba5cc88ef20547658a97b"
+    },
+    {
+      "original_commit": "55e40816ee5855f3f625de7ce048d92bd19e7d0e",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 15/17] arm64: dts: qcom: sm6125: Add GPU",
+      "author_date": "Sat, 28 Jun 2025 11:53:07 +0200",
+      "status": "carried",
+      "commit": "09d42549cef9f3664b758ef7fa96a95e98d78c58"
+    },
+    {
+      "original_commit": "d390336e62c418a374e736379e036c0e157a3683",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 16/17] arm64: dts: qcom: sm6125-xiaomi-laurel-sprout: Enable  GPU",
+      "author_date": "Sat, 28 Jun 2025 11:55:11 +0200",
+      "status": "carried",
+      "commit": "16aa0689e29aa9ed924b053dfbcc7f13e601c8ba"
+    },
+    {
+      "original_commit": "39f1dc8c31fd87fa9179b6ed4d628fe69e0cd78a",
+      "author": "SzczurekYT <szczurek@szczurek.yt>",
+      "subject": "[PATCH 17/17] drm/msm/a6xx: Correct highest_bank_bit value for a610  to avoid corruption",
+      "author_date": "Fri, 27 Jun 2025 21:05:11 +0200",
+      "status": "carried",
+      "commit": "b466a1538863e889c622f6ea7e007c39ad201727"
+    },
+    {
+      "original_commit": "f7ad376343ed640f636ef9bf298eda2c7efbd5d5",
+      "author": "\"Isaac J. Manjarres\" <isaacmanjarres@google.com>",
+      "subject": "[PATCH] ANDROID: mm/memfd-ashmem-shim: Introduce shim layer",
+      "author_date": "Tue, 28 Jan 2025 14:44:53 -0800",
+      "status": "carried",
+      "commit": "49311ecb40905a3ad924d338873049e1c992903b"
+    },
+    {
+      "original_commit": "01f564c096bb35580d6800afc436c2862a3c954e",
+      "author": "\"Isaac J. Manjarres\" <isaacmanjarres@google.com>",
+      "subject": "[PATCH] ANDROID: mm: shmem: Use memfd-ashmem-shim ioctl handler",
+      "author_date": "Tue, 28 Jan 2025 14:59:07 -0800",
+      "status": "carried",
+      "commit": "9d95c8aa6f7050daa29b51cb60719fa067881bc0"
+    },
+    {
+      "original_commit": "513a31521",
+      "subject": "ANDROID: usb: gadget: configfs: Add Uevent to notify userspace",
+      "status": "already-supplied-by-ACK",
+      "implementation": "drivers/usb/gadget/android_configfs_uevent.h; CONFIG_ANDROID_USB_CONFIGFS_UEVENT=y"
+    }
+  ]
+}
