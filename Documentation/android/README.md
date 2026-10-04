@@ -1,15 +1,35 @@
 <!-- SPDX-License-Identifier: GPL-2.0-only -->
 # Xiaomi Mi A3 Android mainline kernel
 
-This is a source preparation for Mi A3 (`laurel_sprout`, SM6125), targeting
-an initial LineageOS 24.0 kernel boot and ADB connection. The maintainer
-has generated kernel, DTB and module artifacts. Both repacked boot attempts
-returned directly to the bootloader. No kernel log or successful Android
-boot is available. The agent inspected the artifacts without building or
-running runtime tests. `CONFIG_F2FS_FS_SECURITY=y` was added to the hardware
-fragment after the first build and requires a rebuild. Experimental
-repacked images and their limitations are documented in the accompanying
-`out/boot-mainline-20261003/README.md` handoff outside this source tree.
+Mi A3 (`laurel_sprout`, SM6125) mainline kernel for the LineageOS 23.2
+bringup. Maintainer logs on 2026-10-04 confirm Linux 6.15 boots recovery and
+Android reaches sys.boot_completed=1. Settings is accessible through scrcpy
+after restoring standard DMA heap permissions. Physical display handoff,
+software rendering responsiveness, touch, encryption and several HALs remain
+unfinished. Boot completion does not mean daily use is supported.
+
+The ROM device tree is maintained at
+[vishwajithkv/android_device_xiaomi_laurel_sprout](https://github.com/vishwajithkv/android_device_xiaomi_laurel_sprout/tree/lineage-23.2-6.15).
+It supplies the final Android config fragments, fstab, module packaging and
+HAL selection. This kernel repository supplies kernel sources, DTS and module
+sources; the ROM builds their artifacts together.
+
+## Required Android init patch
+
+`rom-patches/system-core/0001-init-recognize-legacy-normal-boot.patch` makes
+Android init recognize the stock bootloader's exact `skip_initramfs` token
+and enter normal first-stage mounting from the combined recovery ramdisk.
+Apply it once to a fresh Lineage checkout, from the Android root:
+
+```sh
+git -C system/core apply --check ../../kernel/mainline/sm6125-mainline/Documentation/android/rom-patches/system-core/0001-init-recognize-legacy-normal-boot.patch
+git -C system/core apply ../../kernel/mainline/sm6125-mainline/Documentation/android/rom-patches/system-core/0001-init-recognize-legacy-normal-boot.patch
+```
+
+The patch was captured against android_system_core revision
+`eb2de7321317226bbc1951382b3171fa59bb4d1d`. This is a ROM patch, not a
+change to the kernel's init implementation. Read the ROM device README for
+the bootloader/DTBO and unencrypted userdata requirements.
 
 The hardware baseline is SzczurekYT's `laurel` branch, Linux 6.15.0,
 revision `39f1dc8c31fd87fa9179b6ed4d628fe69e0cd78a`, from

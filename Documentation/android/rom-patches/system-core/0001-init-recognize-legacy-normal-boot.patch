@@ -1,0 +1,29 @@
+diff --git a/init/first_stage_init.cpp b/init/first_stage_init.cpp
+index 3070fae..da4d918 100644
+--- a/init/first_stage_init.cpp
++++ b/init/first_stage_init.cpp
+@@ -38,6 +38,7 @@
+ #include <android-base/logging.h>
+ #include <android-base/stringify.h>
+ #include <android-base/stringprintf.h>
++#include <android-base/strings.h>
+ #include <android/avf_cc_flags.h>
+ #include <fs_mgr.h>
+ #include <modprobe/modprobe.h>
+@@ -115,6 +116,16 @@ void FreeRamdisk(DIR* dir, dev_t dev) {
+ }
+ 
+ bool ForceNormalBoot(const std::string& cmdline, const std::string& bootconfig) {
++    // Legacy system-as-root bootloaders signal normal boot with skip_initramfs.
++    // Mainline kernels still unpack the combined recovery ramdisk, so perform
++    // the equivalent switch to first_stage_ramdisk in init instead. Recovery
++    // boots omit this flag and retain the recovery ramdisk.
++    for (const auto& argument : android::base::Tokenize(cmdline, " \t\r\n")) {
++        if (argument == "skip_initramfs") {
++            return true;
++        }
++    }
++
+     return bootconfig.find("androidboot.force_normal_boot = \"1\"") != std::string::npos ||
+            cmdline.find("androidboot.force_normal_boot=1") != std::string::npos;
+ }
