@@ -2,8 +2,11 @@
 # First 6.18 boot: maintainer validation
 
 Target: match the 6.15 Android boot milestone before enabling other hardware.
-No successful 6.18 build or boot is verified yet. Builds and installation are
-performed by the maintainer; collect the results before claiming success.
+The 2026-10-04 maintainer build booted recovery and normal Android 16 with
+`6.18.32-g47faf8ef4e7b`; live ADB confirmed `sys.boot_completed=1` and
+running Zygote, SurfaceFlinger and launcher. Physical GUI usability remains
+unverified, and persistent boot logging needs repair. Builds and installation
+are performed by the maintainer; retain the checks below for subsequent builds.
 
 1. Build a complete 6.18 artifact set with the documented LLVM toolchain.
    Run verify-artifacts.py against the ROM outputs. Stop on missing built-ins,

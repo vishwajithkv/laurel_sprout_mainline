@@ -25,13 +25,16 @@ The first maintainer build failed in F2FS: ACK's read-lock hook references
 now enables that option, matching Google's GKI config, with `BLK_CGROUP=y`.
 The resolved build config also omitted Binder because ACK now requires
 `EVENT_TRACING`. The fragment enables `FTRACE` and `FTRACE_SYSCALLS` to select
-the tracing dependency. Both corrections require a maintainer rebuild.
+the tracing dependency. The maintainer rebuilt and booted these corrections.
 
-This migration has not completed a build or been boot-tested. Its acceptance
-target is the existing 6.15 Android boot milestone: recovery, USB ADB,
-`sys.boot_completed=1` and Settings through scrcpy. Android 16 compatibility
-must be demonstrated on the phone; ACK's Android 17 release provenance does
-not establish it.
+On 2026-10-04, the maintainer's build booted recovery and normal Android 16
+on slot B with kernel `6.18.32-g47faf8ef4e7b`. Live ADB confirmed
+`sys.boot_completed=1`, running Zygote and SurfaceFlinger, and the launcher
+as the resumed activity. Storage, metadata and USB ADB were accessible.
+Physical display usability remains unverified: the screen retained console
+contents, and the composer logged unsupported DRM VSync waits. The persistent
+boot logger exited with status 1; diagnostics were captured directly over ADB.
+This establishes Android userspace boot, not daily-use hardware support.
 
 ## Android compatibility
 
@@ -128,4 +131,6 @@ revision was `63e1f779b9c4c60409b5ac074e5f1ad9050d43af`.
 Switch the ROM device tree back to `lineage-23.2-6.15` to restore its kernel
 selection; use the old output directory and matching images/modules.
 The device's local manifest pins this kernel's final committed revision.
-Fresh network sync requires those local commits to be published first.
+The kernel branch is `mainline-6.18` in
+https://github.com/vishwajithkv/laurel_sprout_mainline. The device branch
+`lineage-23.2-6.18` carries the matching pinned manifest and ROM integration.
