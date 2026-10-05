@@ -1,0 +1,3 @@
+// SPDX-License-Identifier: BSD-3-Clause
+// Mi A3 sources are maintained in the companion devicetrees repository.
+#include <qcom/sm6125-xiaomi-laurel-sprout-native.dts>

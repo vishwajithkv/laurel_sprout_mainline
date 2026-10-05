@@ -15,7 +15,7 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def check_config(out):
+def check_config(out, profile):
     config = {}
     for line in (out / ".config").read_text().splitlines():
         match = re.fullmatch(r"CONFIG_(\w+)=(.*)", line)
@@ -50,7 +50,20 @@ def check_config(out):
     """.split()
     for symbol in builtins:
         require(config.get(symbol) == "y", f"CONFIG_{symbol} must be built in; found {config.get(symbol, 'n')}")
-    for symbol in "RUST ASHMEM MODULE_COMPRESS DRM_MSM FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX SND BT WLAN DRM_CLIENT_LOG".split():
+    excluded = "RUST ASHMEM MODULE_COMPRESS FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX SND BT WLAN DRM_CLIENT_LOG".split()
+    if profile == "native":
+        native_builtins = """
+            DRM_MSM DRM_MSM_KMS DRM_MSM_MDSS DRM_MSM_DPU DRM_MSM_DSI
+            DRM_MSM_DSI_14NM_PHY SM_GPUCC_6125 SM_DISPCC_6125
+            ARM_SMMU ARM_SMMU_QCOM BACKLIGHT_CLASS_DEVICE PM_DEVFREQ
+            DEVFREQ_GOV_SIMPLE_ONDEMAND SYNC_FILE QCOM_UBWC_CONFIG
+        """.split()
+        for symbol in native_builtins:
+            require(config.get(symbol) == "y", f"Native graphics requires CONFIG_{symbol}=y")
+        require(config.get("DRM_PANEL_SAMSUNG_S6E8FCO") == "m", "Native profile requires the external panel module")
+    else:
+        excluded += ["DRM_MSM", "DRM_PANEL_SAMSUNG_S6E8FCO"]
+    for symbol in excluded:
         require(config.get(symbol, "n") == "n", f"CONFIG_{symbol} must remain disabled for first boot")
     require(config.get("ANDROID_BINDER_DEVICES") == '"binder,hwbinder,vndbinder"', "Unexpected Binder device names")
     return config
@@ -64,7 +77,7 @@ def check_dtb(data):
     return size
 
 
-def check_boot(path, out):
+def check_boot(path, out, dtb_name):
     image = path.read_bytes()
     require(len(image) <= 67108864, "boot.img exceeds the physical 64 MiB partition")
     require(len(image) >= 1632 and image[:8] == b"ANDROID!", "Invalid Android boot image")
@@ -84,7 +97,7 @@ def check_boot(path, out):
     dtb_size = check_dtb(dtb)
     require(len(dtb) == dtb_size, "Expected exactly one appended DTB")
     require(kernel.startswith((out / "arch/arm64/boot/Image.gz").read_bytes()), "Boot image kernel differs from this build")
-    require(dtb == (out / "arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout-bringup.dtb").read_bytes(), "Boot image DTB differs from this build")
+    require(dtb == (out / "arch/arm64/boot/dts" / dtb_name).read_bytes(), "Boot image DTB differs from this build")
     cmdline = image[64:576].split(b"\0", 1)[0] + image[608:1632].split(b"\0", 1)[0]
     for parameter in (b"androidboot.hardware=laurel_sprout", b"androidboot.boot_devices=soc@0/4804000.ufshc"):
         require(parameter in cmdline.split(), f"Missing boot parameter {parameter.decode()}")
@@ -97,14 +110,16 @@ def main():
     parser.add_argument("--config-only", action="store_true")
     parser.add_argument("--modules-root", type=Path, help="Directory containing this build's collected .ko files")
     parser.add_argument("--boot", type=Path, help="Optional ROM boot.img to inspect")
+    parser.add_argument("--profile", choices=("simpledrm", "native"), default="simpledrm")
     args = parser.parse_args()
-    config = check_config(args.out)
+    dtb_name = "qcom/sm6125-xiaomi-laurel-sprout-" + ("native" if args.profile == "native" else "bringup") + ".dtb"
+    config = check_config(args.out, args.profile)
     print("Resolved config retains the required built-ins and first-boot exclusions")
     if args.config_only:
         return
     kernel = (args.out / "arch/arm64/boot/Image.gz").read_bytes()
     require(len(gzip.decompress(kernel)) > 0, "Empty kernel")
-    check_dtb((args.out / "arch/arm64/boot/dts/qcom/sm6125-xiaomi-laurel-sprout-bringup.dtb").read_bytes())
+    check_dtb((args.out / "arch/arm64/boot/dts" / dtb_name).read_bytes())
     release = (args.out / "include/config/kernel.release").read_text().strip()
     require(release.startswith("6.18.32"), f"Unexpected release: {release}")
     modules_root = args.modules_root or args.out / "module-staging/lib/modules" / release
@@ -113,12 +128,14 @@ def main():
     modules = list(modules_root.rglob("*.ko"))
     require(modules or "m" not in config.values(), "Config requests modules but none were staged")
     require(not list(modules_root.rglob("*.ko.*")), "Compressed modules cannot be collected by this ROM setup")
+    if args.profile == "native":
+        require(any(m.name == "panel-samsung-s6e8fco.ko" for m in modules), "Missing freshly built Samsung panel module")
     for module in modules:
         match = re.search(rb"vermagic=([^\x00]+)", module.read_bytes())
         require(match and match[1].split()[0].decode() == release, f"Module release mismatch: {module}")
     print(f"Verified Image.gz, Mi A3 DTB and {len(modules)} matching modules for {release}")
     if args.boot:
-        check_boot(args.boot, args.out)
+        check_boot(args.boot, args.out, dtb_name)
 
 
 if __name__ == "__main__":

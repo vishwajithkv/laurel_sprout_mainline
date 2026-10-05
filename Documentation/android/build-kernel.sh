@@ -10,7 +10,16 @@ modules_root="$kernel_root-modules"
 for source in "$dt_root/qcom/sm6125-xiaomi-laurel-sprout-bringup.dts" "$modules_root/panel/Kbuild"; do
     [[ -f "$source" ]] || { echo "Missing split source: $source" >&2; exit 1; }
 done
-out=${MI_A3_KERNEL_OUT:-"$android_root/out/kernel-laurel-6.18"}
+profile=${MI_A3_GRAPHICS_PROFILE:-simpledrm}
+case "$profile" in
+    simpledrm) dtb_target=qcom/sm6125-xiaomi-laurel-sprout-bringup.dtb; graphics_fragments=() ;;
+    native) dtb_target=qcom/sm6125-xiaomi-laurel-sprout-native.dtb; graphics_fragments=(arch/arm64/configs/laurel_native_graphics.config) ;;
+    *) echo "Unknown MI_A3_GRAPHICS_PROFILE: $profile" >&2; exit 1 ;;
+esac
+[[ -f "$dt_root/${dtb_target%.dtb}.dts" ]] || { echo "Missing $profile devicetree" >&2; exit 1; }
+default_out="$android_root/out/kernel-laurel-6.18"
+[[ "$profile" != native ]] || default_out+="-native"
+out=${MI_A3_KERNEL_OUT:-"$default_out"}
 llvm_bin=${LLVM_BIN:-"$android_root/prebuilts/clang/host/linux-x86/clang-r563880c/bin"}
 case "$out" in
     /*) ;;
@@ -32,15 +41,16 @@ kmake=(make ARCH=arm64 LLVM=1 HOSTCC=clang HOSTCXX=clang++ O="$out" DTC_INCLUDE=
     arch/arm64/configs/android-mainline.config \
     arch/arm64/configs/laurel_sprout.config \
     arch/arm64/configs/laurel_bringup.config \
+    "${graphics_fragments[@]}" \
     "$android_root/device/xiaomi/laurel_sprout/configs/ufs-bsg.config" \
     "$android_root/device/xiaomi/laurel_sprout/configs/android-boot.config"
 "${kmake[@]}" olddefconfig
-python3 Documentation/android/verify-artifacts.py --out "$out" --config-only
-"${kmake[@]}" -j"${JOBS:-8}" Image.gz qcom/sm6125-xiaomi-laurel-sprout-bringup.dtb modules
+python3 Documentation/android/verify-artifacts.py --out "$out" --profile "$profile" --config-only
+"${kmake[@]}" -j"${JOBS:-8}" Image.gz "$dtb_target" modules
 "${kmake[@]}" M="$modules_root/panel" modules
 "${kmake[@]}" modules_install INSTALL_MOD_PATH="$out/module-staging" INSTALL_MOD_STRIP=1
 "${kmake[@]}" M="$modules_root/panel" modules_install INSTALL_MOD_PATH="$out/module-staging" INSTALL_MOD_STRIP=1
 depmod -b "$out/module-staging" "$(cat "$out/include/config/kernel.release")"
-python3 Documentation/android/verify-artifacts.py --out "$out"
-echo "Kernel, bringup DTB and matching modules: $out"
+python3 Documentation/android/verify-artifacts.py --out "$out" --profile "$profile"
+echo "Kernel, $profile DTB and matching modules: $out"
 echo "Use the ROM build to package recovery-as-boot and vendor modules."

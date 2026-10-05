@@ -1,0 +1,58 @@
+diff --git a/drm/ResourceManager.cpp b/drm/ResourceManager.cpp
+index 676588e..c40fda6 100644
+--- a/drm/ResourceManager.cpp
++++ b/drm/ResourceManager.cpp
+@@ -19,8 +19,10 @@
+ #include "ResourceManager.h"
+ 
+ #include <android-base/strings.h>
+-#include <sys/stat.h>
++#include <glob.h>
+ 
++#include <algorithm>
++#include <charconv>
+ #include <ctime>
+ #include <sstream>
+ 
+@@ -52,7 +54,7 @@ void ResourceManager::Init() {
+   }
+ 
+   // Could be a valid path or it can have at the end of it the wildcard %
+-  // which means that it will try open all devices until an error is met.
++  // which means that it will try all existing numbered devices.
+   std::string path_pattern = Properties::GetDevicePath();
+   if (path_pattern.empty()) {
+     path_pattern = "/dev/dri/card%";
+@@ -64,14 +66,27 @@ void ResourceManager::Init() {
+     }
+   } else {
+     path_pattern.resize(path_pattern.size() - 1);
+-    for (int idx = 0;; ++idx) {
++    // DRM minor numbers can have gaps: SimpleDRM may unregister card0
++    // after MSM has registered card1. Do not stop at the first missing node.
++    glob_t paths{};
++    std::vector<int> indices;
++    if (glob((path_pattern + "[0-9]*").c_str(), 0, nullptr, &paths) == 0) {
++      for (size_t i = 0; i < paths.gl_pathc; ++i) {
++        std::string name(paths.gl_pathv[i]);
++        const char *first = name.data() + path_pattern.size();
++        const char *last = name.data() + name.size();
++        int idx = 0;
++        auto result = std::from_chars(first, last, idx);
++        if (result.ec == std::errc{} && result.ptr == last && idx >= 0)
++          indices.emplace_back(idx);
++      }
++    }
++    globfree(&paths);
++    std::sort(indices.begin(), indices.end());
++    for (int idx : indices) {
+       std::ostringstream path;
+       path << path_pattern << idx;
+ 
+-      struct stat buf {};
+-      if (stat(path.str().c_str(), &buf) != 0)
+-        break;
+-
+       auto dev = DrmDevice::CreateInstance(path.str(), this, idx);
+       if (dev) {
+         drms_.emplace_back(std::move(dev));

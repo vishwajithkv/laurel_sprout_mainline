@@ -41,6 +41,20 @@ showed CPU-bound payload processing and no cpufreq policies. See CPUFREQ.md for
 the attributed hardware references, SM6125 LUT limit, separate DT changes and
 required maintainer validation. These new source changes are not yet boot tested.
 
+## Native graphics profile (next build)
+
+The ROM now defaults to the new native A610/DPU/DSI profile, using Mesa
+Freedreno/Turnip, MSM minigbm and the upstream AIDL DRM composer. It also
+packages the freshly built Samsung panel module in recovery-as-boot and vendor.
+The first maintainer native build boots Android with Freedreno FD610 GLES,
+but the physical display is black and the composer uses its headless mode.
+Card-discovery and DSI pixel-clock corrections are prepared, pending rebuild.
+The earlier SimpleDRM milestone remains the known-working display fallback. See NATIVE_GRAPHICS.md
+for firmware inputs, a separate build output, acceptance and explicit rollback.
+The standalone helper still defaults to SimpleDRM; select native explicitly with
+MI_A3_GRAPHICS_PROFILE=native. Profile-specific instructions supersede the
+historical bringup selection statements below.
+
 ## Android compatibility
 
 ACK supplies Android Binder, USB gadget uevents, dm-default-key and inline
@@ -123,6 +137,7 @@ To inspect artifacts produced by that ROM build:
 
 ```sh
 python3 kernel/mainline/sm6125-mainline-6.18/Documentation/android/verify-artifacts.py \
+    --profile native \
     --out out-6.18/target/product/laurel_sprout/obj/KERNEL_OBJ \
     --modules-root out-6.18/target/product/laurel_sprout/vendor/lib/modules \
     --boot out-6.18/target/product/laurel_sprout/boot.img
