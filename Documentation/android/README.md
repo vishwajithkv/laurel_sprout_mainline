@@ -169,3 +169,8 @@ Android, FT3518 touch works in recovery, CPU frequency scaling works in Android,
 recovery sideload completes, and the physical display transitions to Android.
 Rendering remains software based. See CPUFREQ.md and TOUCH_DISPLAY.md for
 evidence and remaining limits.
+
+Modem source integration now carries the five attributed laurel-connectivity
+patches. This is unvalidated kernel support with manual firmware startup;
+Android telephony and the RMTFS userspace service remain pending. See the
+companion kernel Documentation/android/MODEM.md and modem-provenance.json.

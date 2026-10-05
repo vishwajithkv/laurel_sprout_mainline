@@ -39,6 +39,10 @@ def check_config(out):
         DRM DRM_SIMPLEDRM DRM_FBDEV_EMULATION DRM_CLIENT_DEFAULT_FBDEV
         INPUT_EVDEV INPUT_PM8941_PWRKEY TOUCHSCREEN_EDT_FT5X06
         I2C_QCOM_GENI QCOM_GENI_SE QCOM_GPI_DMA REGULATOR_FIXED_VOLTAGE
+        REMOTEPROC QCOM_Q6V5_PAS QCOM_Q6V5_COMMON QCOM_RPROC_COMMON
+        QCOM_MDT_LOADER QCOM_PIL_INFO QCOM_SYSMON QCOM_PD_MAPPER
+        QCOM_QMI_HELPERS QCOM_RMTFS_MEM QCOM_SMEM QCOM_SMP2P
+        RPMSG RPMSG_QCOM_GLINK RPMSG_QCOM_GLINK_SMEM QRTR QRTR_SMD
         USB USB_GADGET USB_DWC3 USB_DWC3_QCOM USB_DWC3_DUAL_ROLE
         PHY_QCOM_QUSB2 USB_ROLE_SWITCH TYPEC_QCOM_PMIC REGULATOR_QCOM_USB_VBUS
         USB_CONFIGFS USB_CONFIGFS_F_FS ANDROID_USB_CONFIGFS_UEVENT
@@ -46,7 +50,7 @@ def check_config(out):
     """.split()
     for symbol in builtins:
         require(config.get(symbol) == "y", f"CONFIG_{symbol} must be built in; found {config.get(symbol, 'n')}")
-    for symbol in "RUST ASHMEM MODULE_COMPRESS DRM_MSM FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX REMOTEPROC SND BT WLAN DRM_CLIENT_LOG".split():
+    for symbol in "RUST ASHMEM MODULE_COMPRESS DRM_MSM FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX SND BT WLAN DRM_CLIENT_LOG".split():
         require(config.get(symbol, "n") == "n", f"CONFIG_{symbol} must remain disabled for first boot")
     require(config.get("ANDROID_BINDER_DEVICES") == '"binder,hwbinder,vndbinder"', "Unexpected Binder device names")
     return config

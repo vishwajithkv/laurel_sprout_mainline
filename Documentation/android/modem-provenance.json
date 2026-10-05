@@ -1,0 +1,48 @@
+{
+  "donor": "https://gitlab.postmarketos.org/SzczurekYT/linux.git",
+  "branch": "laurel-connectivity",
+  "donor_tip": "dcd165612d7f939c0348e11edac848b434e13e0b",
+  "status": "ported; not built or device validated",
+  "patches": [
+    {
+      "original_commit": "6460f17516dc71a48dc4c8bf7faf6fd944ecf9ce",
+      "author": "Kamil Gołda <kamil.golda@protonmail.com>",
+      "author_date": "2025-08-11T19:03:15+02:00",
+      "subject": "soc: qcom: pd-mapper: Add support for SM6125",
+      "repository": "sm6125-mainline-6.18",
+      "commit": "58097a89f30eb5b8086d1ed79cf63d400abcb0b7"
+    },
+    {
+      "original_commit": "3adde3e0c9e18ffbf19f1813b522dd51b0ae6d5c",
+      "author": "Kamil Gołda <kamil.golda@protonmail.com>",
+      "author_date": "2025-07-27T16:46:49+02:00",
+      "subject": "arm64: dts: qcom: sm6125: Add RMTFS memory node",
+      "repository": "sm6125-mainline-6.18-devicetrees",
+      "commit": "d09b9626526429331c2753bcb24ec0168d0003cf"
+    },
+    {
+      "original_commit": "e1c63c92a7e1775b4707f80ea6cbe4d171d3c03b",
+      "author": "Kamil Gołda <kamil.golda@protonmail.com>",
+      "author_date": "2025-07-27T11:51:26+02:00",
+      "subject": "remoteproc: qcom: pas: Add SM6125 MPSS",
+      "repository": "sm6125-mainline-6.18",
+      "commit": "04b22faeb7c281552fbfc53c93bd8af577d9dd06"
+    },
+    {
+      "original_commit": "0b6b949d142d9d51bc9ca4f1ca11ec3116cc59e2",
+      "author": "Kamil Gołda <kamil.golda@protonmail.com>",
+      "author_date": "2025-07-27T12:49:51+02:00",
+      "subject": "add modem to sm6125.dtsi",
+      "repository": "sm6125-mainline-6.18-devicetrees",
+      "commit": "a6f92154efb9eee8963581abb7c9a2325d965a83"
+    },
+    {
+      "original_commit": "ca893bf7da54451773ddb1608f0eab6ddcb238a2",
+      "author": "Kamil Gołda <kamil.golda@protonmail.com>",
+      "author_date": "2025-07-27T13:01:58+02:00",
+      "subject": "enable modem on xiaomi",
+      "repository": "sm6125-mainline-6.18-devicetrees",
+      "commit": "faf57a2c6668a084c2d593a71710ba0b0028d96a"
+    }
+  ]
+}

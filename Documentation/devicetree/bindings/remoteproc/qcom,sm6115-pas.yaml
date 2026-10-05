@@ -4,14 +4,14 @@
 $id: http://devicetree.org/schemas/remoteproc/qcom,sm6115-pas.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Qualcomm SM6115 Peripheral Authentication Service
+title: Qualcomm SM6115 and SM6125 Peripheral Authentication Service
 
 maintainers:
   - Bjorn Andersson <andersson@kernel.org>
   - Konrad Dybcio <konradybcio@kernel.org>
 
 description:
-  Qualcomm SM6115 SoC Peripheral Authentication Service loads and boots
+  Qualcomm SM6115 and SM6125 SoC Peripheral Authentication Service loads and boots
   firmware on the Qualcomm DSP Hexagon cores.
 
 properties:
@@ -21,6 +21,7 @@ properties:
           - qcom,sm6115-adsp-pas
           - qcom,sm6115-cdsp-pas
           - qcom,sm6115-mpss-pas
+          - qcom,sm6125-mpss-pas
 
       - items:
           - const: qcom,qcm2290-adsp-pas
@@ -85,6 +86,7 @@ allOf:
             enum:
               - qcom,sm6115-cdsp-pas
               - qcom,sm6115-mpss-pas
+              - qcom,sm6125-mpss-pas
     then:
       properties:
         power-domains:
