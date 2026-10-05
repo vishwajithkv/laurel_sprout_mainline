@@ -2,7 +2,7 @@
 # Mi A3 Android Common Kernel 6.18
 
 Device: Xiaomi Mi A3 (laurel_sprout), SM6125 / Snapdragon 665 / Trinket.
-Branch: `mainline-6.18`.
+Branch: `mainline-6.18-split` (published unsplit baseline: `mainline-6.18`).
 
 ## Provenance and status
 
@@ -58,13 +58,16 @@ source support is retained, with optional probing disabled in the bringup DTS.
 
 ## Lineage integration
 
-The ROM branch is `lineage-23.2-6.18` in
+The ROM split branch is `lineage-23.2-6.18-split` in
 https://github.com/vishwajithkv/android_device_xiaomi_laurel_sprout.
 It includes `Documentation/android/BoardConfigBringup.mk` from this source tree.
 Source path: `kernel/mainline/sm6125-mainline-6.18`.
 DTB: `qcom/sm6125-xiaomi-laurel-sprout-bringup.dtb`.
 
-Lineage compiles kernel, DTBs and modules from this checkout. Fresh modules and
+The split build requires sibling `sm6125-mainline-6.18-devicetrees` and
+`sm6125-mainline-6.18-modules` repositories. See SPLIT_SOURCES.md for source
+ownership and the verified Lineage reference. This refactor is not boot-tested.
+Lineage compiles the core, external DTS and selected external modules together. Fresh modules and
 depmod metadata go into vendor; initial module load lists remain empty.
 No reference binaries from 6.15 are copied into the build.
 

@@ -869,6 +869,8 @@ config DRM_PANEL_SAMSUNG_S6E8AA5X01_AMS561RA01
 
 config DRM_PANEL_SAMSUNG_S6E8FCO
 	tristate "Samsung S6E8FCO DSI video mode panel"
+	# Built by the companion modules repository.
+	depends on m
 	depends on OF
 	depends on BACKLIGHT_CLASS_DEVICE
 	select DRM_MIPI_DSI
