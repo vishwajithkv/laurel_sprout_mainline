@@ -37,7 +37,8 @@ def check_config(out):
         BPF_SYSCALL BPF_JIT DMABUF_HEAPS DMABUF_HEAPS_SYSTEM
         BLK_DEV_DM DM_VERITY BLK_INLINE_ENCRYPTION BLK_INLINE_ENCRYPTION_FALLBACK
         DRM DRM_SIMPLEDRM DRM_FBDEV_EMULATION DRM_CLIENT_DEFAULT_FBDEV
-        FRAMEBUFFER_CONSOLE INPUT_EVDEV INPUT_PM8941_PWRKEY
+        INPUT_EVDEV INPUT_PM8941_PWRKEY TOUCHSCREEN_EDT_FT5X06
+        I2C_QCOM_GENI QCOM_GENI_SE QCOM_GPI_DMA REGULATOR_FIXED_VOLTAGE
         USB USB_GADGET USB_DWC3 USB_DWC3_QCOM USB_DWC3_DUAL_ROLE
         PHY_QCOM_QUSB2 USB_ROLE_SWITCH TYPEC_QCOM_PMIC REGULATOR_QCOM_USB_VBUS
         USB_CONFIGFS USB_CONFIGFS_F_FS ANDROID_USB_CONFIGFS_UEVENT
@@ -45,7 +46,7 @@ def check_config(out):
     """.split()
     for symbol in builtins:
         require(config.get(symbol) == "y", f"CONFIG_{symbol} must be built in; found {config.get(symbol, 'n')}")
-    for symbol in "RUST ASHMEM MODULE_COMPRESS DRM_MSM TOUCHSCREEN_EDT_FT5X06 MMC RTC_DRV_PM8XXX REMOTEPROC SND BT WLAN DRM_CLIENT_LOG".split():
+    for symbol in "RUST ASHMEM MODULE_COMPRESS DRM_MSM FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX REMOTEPROC SND BT WLAN DRM_CLIENT_LOG".split():
         require(config.get(symbol, "n") == "n", f"CONFIG_{symbol} must remain disabled for first boot")
     require(config.get("ANDROID_BINDER_DEVICES") == '"binder,hwbinder,vndbinder"', "Unexpected Binder device names")
     return config
