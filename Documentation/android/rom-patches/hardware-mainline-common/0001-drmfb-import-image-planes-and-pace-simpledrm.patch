@@ -1,0 +1,112 @@
+diff --git a/interfaces/graphics/composer/drmfb/DrmFramebufferMinigbm.cpp b/interfaces/graphics/composer/drmfb/DrmFramebufferMinigbm.cpp
+index 1edd14c..18e7905 100644
+--- a/interfaces/graphics/composer/drmfb/DrmFramebufferMinigbm.cpp
++++ b/interfaces/graphics/composer/drmfb/DrmFramebufferMinigbm.cpp
+@@ -27,12 +27,16 @@ namespace minigbm {
+ namespace {
+ void addFramebuffer(int fd, cros_gralloc_handle_t handle, int planes, uint32_t* id) {
+     uint32_t handles[DRV_MAX_PLANES] = {};
++    uint32_t strides[DRV_MAX_PLANES] = {};
++    uint32_t offsets[DRV_MAX_PLANES] = {};
+     for (int i = 0; i < planes; ++i) {
+         if (drmPrimeFDToHandle(fd, handle->fds[i], &handles[i])) {
+             PLOG(ERROR) << "Failed to get handle for prime fd "
+                 << handle->fds[i] << " (plane " << i << ")";
+             return;
+         }
++        strides[i] = handle->strides[i];
++        offsets[i] = handle->offsets[i];
+     }
+ 
+     /*
+@@ -45,23 +49,32 @@ void addFramebuffer(int fd, cros_gralloc_handle_t handle, int planes, uint32_t*
+ 
+     // TODO: Consider using drmModeAddFB2WithModifiers
+     if (drmModeAddFB2(fd, handle->width, handle->height,
+-            format, handles, handle->strides, handle->offsets, id, 0)) {
++            format, handles, strides, offsets, id, 0)) {
+         PLOG(ERROR) << "drmModeAddFB2 failed";
+     }
+ }
+ }
+ 
+ bool addFramebuffer(int fd, buffer_handle_t buffer, uint32_t* id) {
+-    auto planes = buffer->numFds;
+-    if (planes < 1 && planes > DRV_MAX_PLANES)
++    auto fds = buffer->numFds;
++    if (fds < 1 || fds > DRV_MAX_FDS)
+         return false;
+-    if ((buffer->numInts + planes) < static_cast<int>(handle_data_size))
++    if ((buffer->numInts + fds) < static_cast<int>(handle_data_size))
+         return false;
+ 
+     auto handle = reinterpret_cast<cros_gralloc_handle_t>(buffer);
+     if (handle->magic != cros_gralloc_magic)
+         return false;
+ 
++    // A reserved-region metadata FD follows the image-plane FDs. It is not
++    // a scanout plane: DRM requires all unused plane fields to stay zero.
++    auto planes = handle->num_planes;
++    if (planes < 1 || planes > DRV_MAX_PLANES || planes > static_cast<uint32_t>(fds)) {
++        LOG(ERROR) << "Invalid minigbm image-plane count " << planes
++                   << " for " << fds << " FDs";
++        return true; // Recognized handle; leave id zero on failure.
++    }
++
+     addFramebuffer(fd, handle, planes, id);
+     return true;
+ }
+diff --git a/interfaces/graphics/composer/drmfb/DrmVsyncThread.cpp b/interfaces/graphics/composer/drmfb/DrmVsyncThread.cpp
+index e2d63f0..10d5221 100644
+--- a/interfaces/graphics/composer/drmfb/DrmVsyncThread.cpp
++++ b/interfaces/graphics/composer/drmfb/DrmVsyncThread.cpp
+@@ -3,6 +3,7 @@
+ 
+ #define LOG_TAG "drmfb-vsync"
+ 
++#include <cerrno>
+ #include <time.h>
+ #include <android-base/logging.h>
+ #include <xf86drm.h>
+@@ -26,6 +27,12 @@ DrmVsyncThread::DrmVsyncThread(DrmDisplay& display)
+       mDisplay(display) {}
+ 
+ void DrmVsyncThread::run() {
++    if (mUseSoftwareVsync) {
++        if (!waitFallback())
++            mDisplay.vsync(mTimestamp);
++        return;
++    }
++
+     auto highCrtc = mDisplay.pipe() << DRM_VBLANK_HIGH_CRTC_SHIFT;
+     drmVBlank vBlank{ .request = {
+         .type = static_cast<drmVBlankSeqType>(
+@@ -35,8 +42,14 @@ void DrmVsyncThread::run() {
+ 
+     auto ret = drmWaitVBlank(mDisplay.device().fd(), &vBlank);
+     if (ret) {
+-        PLOG(ERROR) << "drmWaitBlank failed";
+-        if (errno == EBUSY || waitFallback())
++        const auto error = errno;
++        if (error == EOPNOTSUPP || error == ENOSYS) {
++            LOG(INFO) << "DRM vblank unavailable; using software VSync pacing";
++            mUseSoftwareVsync = true;
++        } else {
++            PLOG(ERROR) << "drmWaitBlank failed";
++        }
++        if (error == EBUSY || waitFallback())
+             return;
+     } else {
+         mTimestamp = vBlank.reply.tval_sec * NANO + vBlank.reply.tval_usec * 1000;
+diff --git a/interfaces/graphics/composer/drmfb/DrmVsyncThread.h b/interfaces/graphics/composer/drmfb/DrmVsyncThread.h
+index abcab68..fcaea6f 100644
+--- a/interfaces/graphics/composer/drmfb/DrmVsyncThread.h
++++ b/interfaces/graphics/composer/drmfb/DrmVsyncThread.h
+@@ -25,6 +25,7 @@ private:
+ 
+     DrmDisplay& mDisplay;
+     int64_t mTimestamp = 0;
++    bool mUseSoftwareVsync = false;
+ };
+ 
+ }  // namespace drmfb

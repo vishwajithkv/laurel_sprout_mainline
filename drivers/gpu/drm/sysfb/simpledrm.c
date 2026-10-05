@@ -221,7 +221,7 @@ struct simpledrm_device {
 #endif
 
 	/* modesetting */
-	u32 formats[DRM_SYSFB_PLANE_NFORMATS(1)];
+	u32 formats[DRM_SYSFB_PLANE_NFORMATS(1) + 1];
 	struct drm_plane primary_plane;
 	struct drm_crtc crtc;
 	struct drm_encoder encoder;
@@ -761,6 +761,12 @@ static struct simpledrm_device *simpledrm_device_create(struct drm_driver *drv,
 
 	nformats = drm_sysfb_build_fourcc_list(dev, &format->format, 1,
 					       sdev->formats, ARRAY_SIZE(sdev->formats));
+	/* Android RGBA client targets use XBGR8888 after discarding alpha.
+	 * Advertise it only where drm_fb_blit() can convert to native scanout.
+	 */
+	if (format->format == DRM_FORMAT_XRGB8888 ||
+	    format->format == DRM_FORMAT_ARGB8888)
+		sdev->formats[nformats++] = DRM_FORMAT_XBGR8888;
 
 	primary_plane = &sdev->primary_plane;
 	ret = drm_universal_plane_init(dev, primary_plane, 0, &simpledrm_primary_plane_funcs,

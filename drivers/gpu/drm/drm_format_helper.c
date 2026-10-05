@@ -1206,6 +1206,16 @@ int drm_fb_blit(struct iosys_map *dst, const unsigned int *dst_pitch, uint32_t d
 	} else if (fb_format == (dst_format & ~DRM_FORMAT_BIG_ENDIAN)) {
 		drm_fb_swab(dst, dst_pitch, src, fb, clip, false, state);
 		return 0;
+	} else if (fb_format == DRM_FORMAT_XBGR8888 && dst_format == DRM_FORMAT_XRGB8888) {
+		/* Swapping red and blue is symmetric; pitch and clipping are
+		 * identical for these two packed 32-bit formats.
+		 */
+		drm_fb_xrgb8888_to_xbgr8888(dst, dst_pitch, src, fb, clip, state);
+		return 0;
+	} else if (fb_format == DRM_FORMAT_XBGR8888 && dst_format == DRM_FORMAT_ARGB8888) {
+		/* The same red/blue swap, with opaque alpha for native ARGB. */
+		drm_fb_xrgb8888_to_abgr8888(dst, dst_pitch, src, fb, clip, state);
+		return 0;
 	} else if (fb_format == DRM_FORMAT_XRGB8888) {
 		if (dst_format == DRM_FORMAT_RGB565) {
 			drm_fb_xrgb8888_to_rgb565(dst, dst_pitch, src, fb, clip, state);

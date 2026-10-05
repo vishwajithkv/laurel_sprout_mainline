@@ -30,11 +30,18 @@ are performed by the maintainer; retain the checks below for subsequent builds.
    through `scrcpy --no-audio`. Check for recurring fatal services or a reboot.
 
 Retain the current unencrypted userdata profile, permissive bringup policy,
-software graphics and disabled optional hardware. Do not format data to hide
-a regression. A usable physical display, touch, OTG host operation, native GPU,
+software graphics and the remaining disabled optional hardware. FT3518 touch
+is now selected for the next build; it still needs device validation. Do not format data to hide
+a regression. A usable physical display, validated touch, OTG host operation, native GPU,
 encryption, networking and other HALs are subsequent milestones.
 
 On failure, keep the logs and identify the first new fatal error relative to
 6.15. Fix that specific regression and rebuild a coherent kernel/DTB/module
 set. Restore the known-working images if recovery or normal-boot diagnosis is
 lost; do not exhaust A/B retries with repeated blind boots.
+
+Latest maintainer validation (2026-10-05): the split-source kernel boots normal
+Android, FT3518 touch works in recovery, CPU frequency scaling works in Android,
+recovery sideload completes, and the physical display transitions to Android.
+Rendering remains software based. See CPUFREQ.md and TOUCH_DISPLAY.md for
+evidence and remaining limits.

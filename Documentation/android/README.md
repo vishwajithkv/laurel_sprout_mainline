@@ -36,6 +36,11 @@ contents, and the composer logged unsupported DRM VSync waits. The persistent
 boot logger exited with status 1; diagnostics were captured directly over ADB.
 This establishes Android userspace boot, not daily-use hardware support.
 
+CPU frequency scaling integration was prepared after recovery sideload counters
+showed CPU-bound payload processing and no cpufreq policies. See CPUFREQ.md for
+the attributed hardware references, SM6125 LUT limit, separate DT changes and
+required maintainer validation. These new source changes are not yet boot tested.
+
 ## Android compatibility
 
 ACK supplies Android Binder, USB gadget uevents, dm-default-key and inline
@@ -54,7 +59,9 @@ absent from the new Kconfig declarations are removed and recorded in
 `config-sources.json`. Available ACK Android requirements are restored.
 This source audit does not substitute for resolving dependencies during a build.
 Use 4 KiB pages and built-in boot dependencies. The full panel/GPU/touch/OTG
-source support is retained, with optional probing disabled in the bringup DTS.
+source support is retained. FT3518 touch and its I2C/GPI/supply dependencies
+are now enabled; native display/GPU and other optional probing stay disabled.
+Touch enablement awaits a maintainer build and device validation.
 
 ## Lineage integration
 
@@ -137,3 +144,28 @@ The device's local manifest pins this kernel's final committed revision.
 The kernel branch is `mainline-6.18` in
 https://github.com/vishwajithkv/laurel_sprout_mainline. The device branch
 `lineage-23.2-6.18` carries the matching pinned manifest and ROM integration.
+
+## Touch and physical display follow-up
+
+The bringup fragment now builds the existing EDT FT3518 driver and GENI/GPI
+transport into the kernel, so touch does not depend on vendor module loading
+in either recovery or Android. The companion bringup DTS enables I2C2, QUP0,
+GPI DMA0 and the existing 3.3 V touch supply. The imported GPIO/reset/interrupt
+wiring and 720 x 1560 touch coordinates are unchanged. GPI DMA1 stays disabled.
+
+FRAMEBUFFER_CONSOLE is disabled to prevent kernel text and penguins sharing
+the scanout framebuffer with Android. DRM_SIMPLEDRM, DRM_FBDEV_EMULATION and
+DRM_CLIENT_DEFAULT_FBDEV remain enabled for Android and recovery graphics.
+Early on-screen kernel diagnostics disappear; kernel logs remain available
+through ADB, the persistent logger and pstore when configured and working.
+This does not enable Adreno/MDSS or fix software-rendering performance.
+
+These changes are source-only. After rebuilding matching kernel/DTB/modules,
+validate recovery graphics and touch first, then Android input events and GUI.
+See TOUCH_DISPLAY.md for diagnostics if the physical GUI still fails.
+
+Latest maintainer validation (2026-10-05): the split-source kernel boots normal
+Android, FT3518 touch works in recovery, CPU frequency scaling works in Android,
+recovery sideload completes, and the physical display transitions to Android.
+Rendering remains software based. See CPUFREQ.md and TOUCH_DISPLAY.md for
+evidence and remaining limits.
