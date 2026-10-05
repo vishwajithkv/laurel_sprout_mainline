@@ -41,6 +41,7 @@ struct qcom_cpufreq_soc_data {
 	u32 reg_current_vote;
 	u32 reg_perf_state;
 	u8 lut_row_size;
+	u8 lut_max_entries;
 };
 
 struct qcom_cpufreq_data {
@@ -156,7 +157,7 @@ static unsigned int qcom_cpufreq_get_freq(struct cpufreq_policy *policy)
 	soc_data = qcom_cpufreq.soc_data;
 
 	index = readl_relaxed(data->base + soc_data->reg_perf_state);
-	index = min(index, LUT_MAX_ENTRIES - 1);
+	index = min(index, (unsigned int)soc_data->lut_max_entries - 1);
 
 	return policy->freq_table[index].frequency;
 }
@@ -211,7 +212,7 @@ static int qcom_cpufreq_hw_read_lut(struct device *cpu_dev,
 	struct qcom_cpufreq_data *drv_data = policy->driver_data;
 	const struct qcom_cpufreq_soc_data *soc_data = qcom_cpufreq.soc_data;
 
-	table = kcalloc(LUT_MAX_ENTRIES + 1, sizeof(*table), GFP_KERNEL);
+	table = kcalloc(soc_data->lut_max_entries + 1, sizeof(*table), GFP_KERNEL);
 	if (!table)
 		return -ENOMEM;
 
@@ -236,7 +237,7 @@ static int qcom_cpufreq_hw_read_lut(struct device *cpu_dev,
 		icc_scaling_enabled = false;
 	}
 
-	for (i = 0; i < LUT_MAX_ENTRIES; i++) {
+	for (i = 0; i < soc_data->lut_max_entries; i++) {
 		data = readl_relaxed(drv_data->base + soc_data->reg_freq_lut +
 				      i * soc_data->lut_row_size);
 		src = FIELD_GET(LUT_SRC, data);
@@ -405,6 +406,19 @@ static const struct qcom_cpufreq_soc_data qcom_soc_data = {
 	.reg_current_vote = 0x704,
 	.reg_perf_state = 0x920,
 	.lut_row_size = 32,
+	.lut_max_entries = LUT_MAX_ENTRIES,
+};
+
+/* Trinket uses the v1 OSM register layout with a reduced frequency LUT. */
+static const struct qcom_cpufreq_soc_data sm6125_soc_data = {
+	.reg_enable = 0x0,
+	.reg_dcvs_ctrl = 0xbc,
+	.reg_freq_lut = 0x110,
+	.reg_volt_lut = 0x114,
+	.reg_current_vote = 0x704,
+	.reg_perf_state = 0x920,
+	.lut_row_size = 32,
+	.lut_max_entries = 12,
 };
 
 static const struct qcom_cpufreq_soc_data epss_soc_data = {
@@ -416,9 +430,11 @@ static const struct qcom_cpufreq_soc_data epss_soc_data = {
 	.reg_intr_clr = 0x308,
 	.reg_perf_state = 0x320,
 	.lut_row_size = 4,
+	.lut_max_entries = LUT_MAX_ENTRIES,
 };
 
 static const struct of_device_id qcom_cpufreq_hw_match[] = {
+	{ .compatible = "qcom,sm6125-cpufreq-hw", .data = &sm6125_soc_data },
 	{ .compatible = "qcom,cpufreq-hw", .data = &qcom_soc_data },
 	{ .compatible = "qcom,cpufreq-epss", .data = &epss_soc_data },
 	{}
