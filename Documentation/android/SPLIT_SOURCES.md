@@ -28,7 +28,9 @@ includes; DTC_INCLUDE resolves the external DTS repository and ACK binding
 headers while retaining the existing DTB target and output path. Upstream
 shared DTS files unrelated to this board remain in ACK. The panel Kconfig
 entry remains in ACK but is module-only; its source and object rule are owned
-by the modules repository. No optional driver is enabled by this refactor.
+by the modules repository. No optional driver is enabled by this refactor. The ROM Android.mk tracks
+external DTS and module inputs as prerequisites of Kbuild, the packaged
+kernel and vendor image so incremental source edits repackage their outputs.
 
 ## Revision and baseline
 
