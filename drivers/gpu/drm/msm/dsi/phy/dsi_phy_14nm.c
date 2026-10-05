@@ -383,6 +383,16 @@ static void pll_14nm_software_reset(struct dsi_pll_14nm *pll_14nm)
 	wmb();	/* make sure register committed */
 }
 
+static u32 dsi_14nm_phy_ldo_control(struct msm_dsi_phy *phy)
+{
+	u32 control = 0x1c;
+
+	if (phy->usecase != MSM_DSI_PHY_STANDALONE)
+		control |= DSI_14nm_PHY_CMN_LDO_CNTRL_VREG_CTRL(32);
+
+	return control;
+}
+
 static void pll_db_commit_14nm(struct dsi_pll_14nm *pll,
 			       struct dsi_pll_config *pconf)
 {
@@ -392,7 +402,9 @@ static void pll_db_commit_14nm(struct dsi_pll_14nm *pll,
 
 	DBG("DSI%d PLL", pll->phy->id);
 
-	writel(0x3c, cmn_base + REG_DSI_14nm_PHY_CMN_LDO_CNTRL);
+	/* PLL rate changes must preserve the PHY's standalone/bonded setting. */
+	writel(dsi_14nm_phy_ldo_control(pll->phy),
+	       cmn_base + REG_DSI_14nm_PHY_CMN_LDO_CNTRL);
 
 	pll_db_commit_common(pll, pconf);
 
@@ -943,7 +955,6 @@ static int dsi_14nm_phy_enable(struct msm_dsi_phy *phy,
 			       struct msm_dsi_phy_clk_request *clk_req)
 {
 	struct msm_dsi_dphy_timing *timing = &phy->timing;
-	u32 data;
 	int i;
 	int ret;
 	void __iomem *base = phy->base;
@@ -957,10 +968,8 @@ static int dsi_14nm_phy_enable(struct msm_dsi_phy *phy,
 		return -EINVAL;
 	}
 
-	data = 0x1c;
-	if (phy->usecase != MSM_DSI_PHY_STANDALONE)
-		data |= DSI_14nm_PHY_CMN_LDO_CNTRL_VREG_CTRL(32);
-	writel(data, base + REG_DSI_14nm_PHY_CMN_LDO_CNTRL);
+	writel(dsi_14nm_phy_ldo_control(phy),
+	       base + REG_DSI_14nm_PHY_CMN_LDO_CNTRL);
 
 	writel(0x1, base + REG_DSI_14nm_PHY_CMN_GLBL_TEST_CTRL);
 
