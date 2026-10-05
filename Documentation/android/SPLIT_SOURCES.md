@@ -37,9 +37,11 @@ kernel and vendor image so incremental source edits repackage their outputs.
 Kernel split branch: mainline-6.18-split.
 ROM split branch: lineage-23.2-6.18-split.
 Companion source branches: mainline-6.18.
-The ROM's laurel-mainline.xml pins all source repositories after local commits.
-Publish the companion repositories and split branches before a fresh network
-repo sync; they are initially local. Do not sync the split manifest prematurely.
+The ROM's laurel-mainline.xml pins all three published source repositories.
+The companion repositories are:
+https://github.com/vishwajithkv/kernel_xiaomi_laurel_sprout-devicetrees
+https://github.com/vishwajithkv/kernel_xiaomi_laurel_sprout-modules
+The kernel and ROM split branches are published in their existing repositories.
 
 The published unsplit baseline remains kernel mainline-6.18 at
 5b501da414fdc6bc2ef8e37f7178396ae67b490e and ROM lineage-23.2-6.18 at
