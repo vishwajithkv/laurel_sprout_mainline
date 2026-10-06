@@ -7,7 +7,7 @@ kernel_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 android_root=$(CDPATH= cd -- "$kernel_root/../../.." && pwd)
 dt_root="$kernel_root-devicetrees"
 modules_root="$kernel_root-modules"
-for source in "$dt_root/qcom/sm6125-xiaomi-laurel-sprout-bringup.dts" "$modules_root/panel/Kbuild"; do
+for source in "$dt_root/qcom/sm6125-xiaomi-laurel-sprout-bringup.dts" "$modules_root/qcom/opensource/display-drivers/panel/Kbuild"; do
     [[ -f "$source" ]] || { echo "Missing split source: $source" >&2; exit 1; }
 done
 profile=${MI_A3_GRAPHICS_PROFILE:-simpledrm}
@@ -34,7 +34,7 @@ done
 export PATH="$llvm_bin:$PATH"
 mkdir -p -- "$out"
 cd -- "$kernel_root"
-kmake=(make ARCH=arm64 LLVM=1 HOSTCC=clang HOSTCXX=clang++ O="$out" DTC_INCLUDE="$dt_root $kernel_root/scripts/dtc/include-prefixes")
+kmake=(make ARCH=arm64 LLVM=1 HOSTCC=clang HOSTCXX=clang++ O="$out" DTC_INCLUDE="$dt_root $dt_root/include $kernel_root/scripts/dtc/include-prefixes")
 
 "${kmake[@]}" laurel_pmos_defconfig
 ./scripts/kconfig/merge_config.sh -m -O "$out" "$out/.config" \
@@ -47,9 +47,9 @@ kmake=(make ARCH=arm64 LLVM=1 HOSTCC=clang HOSTCXX=clang++ O="$out" DTC_INCLUDE=
 "${kmake[@]}" olddefconfig
 python3 Documentation/android/verify-artifacts.py --out "$out" --profile "$profile" --config-only
 "${kmake[@]}" -j"${JOBS:-8}" Image.gz "$dtb_target" modules
-"${kmake[@]}" M="$modules_root/panel" modules
+"${kmake[@]}" M="$modules_root/qcom/opensource/display-drivers/panel" modules
 "${kmake[@]}" modules_install INSTALL_MOD_PATH="$out/module-staging" INSTALL_MOD_STRIP=1
-"${kmake[@]}" M="$modules_root/panel" modules_install INSTALL_MOD_PATH="$out/module-staging" INSTALL_MOD_STRIP=1
+"${kmake[@]}" M="$modules_root/qcom/opensource/display-drivers/panel" modules_install INSTALL_MOD_PATH="$out/module-staging" INSTALL_MOD_STRIP=1
 depmod -b "$out/module-staging" "$(cat "$out/include/config/kernel.release")"
 python3 Documentation/android/verify-artifacts.py --out "$out" --profile "$profile"
 echo "Kernel, $profile DTB and matching modules: $out"

@@ -64,3 +64,28 @@ Agents do not build, test or flash under AGENTS.md.
 To return to the baseline, switch the kernel to mainline-6.18 and ROM device
 tree to lineage-23.2-6.18. Restore the latter branch's local manifests and use
 its matching images/output directory. Companion repositories may remain on disk.
+
+## Binding ownership and module layout
+
+Board-carried schemas live in the devicetrees repository under bindings/:
+SM6125 DISPCC, Qualcomm hardware cpufreq, 14nm DSI PHY, Samsung S6E8FCO,
+EDT FT3518 and the SM6115/SM6125 PAS modem. The carried SM6125 DISPCC
+header lives under include/dt-bindings/clock/. Shared upstream bindings and
+headers remain in ACK. Kernel paths contain relative compatibility symlinks
+to these external files, so kernel C includes, existing schema IDs/references
+and ACK dt_binding_check discovery retain their normal locations. Edit the
+external files, not a second copy in the kernel. Keep the sibling paths.
+BINDING_HISTORY.json records hashes and original carried commit authors/dates;
+all original commits remain intact in the kernel repository.
+
+The external panel driver is now maintained at
+qcom/opensource/display-drivers/panel/ in the modules repository, matching the
+vendor directory convention used by the OnePlus reference. Lineage's kbuild
+module hook and the standalone helper select this path. Build outputs are
+ignored, not checked in. The ROM dependencies include external schemas and
+binding headers as well as DTS and driver sources.
+
+This layout refactor preserves source bytes, configuration and boot packaging.
+It requires a maintainer rebuild of matching kernel, DTB and modules; earlier
+native-display validation applies to the pre-refactor build. No build, test or
+flash was performed for this refactor.
