@@ -7,12 +7,37 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 
 #include "dsi_phy.h"
 #include "dsi.xml.h"
 #include "dsi_phy_14nm.xml.h"
 
 #define PHY_14NM_CKLN_IDX	4
+#define DSI_14NM_MDP_ULPS_CLAMP_ENABLE	0x54
+
+static int dsi_14nm_phy_parse_clamp(struct msm_dsi_phy *phy)
+{
+	struct platform_device *pdev = phy->pdev;
+	struct resource *res;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dsi_phy_clamp");
+	if (!res)
+		return 0;
+
+	if (resource_size(res) < DSI_14NM_MDP_ULPS_CLAMP_ENABLE + sizeof(u32))
+		return dev_err_probe(&pdev->dev, -EINVAL,
+				     "DSI PHY clamp resource is too small\n");
+
+	/* The clamp registers also lie inside the DPU's broad MDP mapping. */
+	phy->clamp_base = msm_ioremap(pdev, "dsi_phy_clamp");
+	if (IS_ERR(phy->clamp_base))
+		return dev_err_probe(&pdev->dev, PTR_ERR(phy->clamp_base),
+				     "Failed to map DSI PHY clamp\n");
+
+	return 0;
+}
 
 /*
  * DSI PLL 14nm - clock diagram (eg: DSI0):
@@ -469,11 +494,16 @@ static void pll_db_commit_14nm(struct dsi_pll_14nm *pll,
 /*
  * VCO clock Callbacks
  */
+static int dsi_pll_14nm_vco_prepare(struct clk_hw *hw);
+
 static int dsi_pll_14nm_vco_set_rate(struct clk_hw *hw, unsigned long rate,
 				     unsigned long parent_rate)
 {
 	struct dsi_pll_14nm *pll_14nm = to_pll_14nm(hw);
 	struct dsi_pll_config conf;
+	bool restart = pll_14nm->phy->pll_on &&
+		of_device_is_compatible(pll_14nm->phy->pdev->dev.of_node,
+					"qcom,sm6125-dsi-phy-14nm");
 
 	DBG("DSI PLL%d rate=%lu, parent's=%lu", pll_14nm->phy->id, rate,
 	    parent_rate);
@@ -499,6 +529,18 @@ static int dsi_pll_14nm_vco_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 	pll_db_commit_14nm(pll_14nm, &conf);
+
+	/*
+	 * Programming the PLL stops it in pll_14nm_software_reset(). A
+	 * prepared CCF parent will not get another prepare callback, so
+	 * restore its hardware state before returning to the RCG consumer.
+	 */
+	if (restart) {
+		pll_14nm->phy->pll_on = false;
+		dev_info_once(&pll_14nm->phy->pdev->dev,
+			      "Restarting prepared SM6125 DSI PLL after rate restore\n");
+		return dsi_pll_14nm_vco_prepare(hw);
+	}
 
 	return 0;
 }
@@ -570,6 +612,15 @@ static int dsi_pll_14nm_vco_prepare(struct clk_hw *hw)
 	}
 
 	DBG("DSI PLL lock success");
+	if (of_device_is_compatible(pll_14nm->phy->pdev->dev.of_node,
+				    "qcom,sm6125-dsi-phy-14nm"))
+		dev_info_once(&pll_14nm->phy->pdev->dev,
+			"DSI PLL ready: status=%#x pll_ctrl=%#x clk_cfg0=%#x clk_cfg1=%#x ldo=%#x\n",
+			readl(base + REG_DSI_14nm_PHY_PLL_RESET_SM_READY_STATUS),
+			readl(cmn_base + REG_DSI_14nm_PHY_CMN_PLL_CNTRL),
+			readl(cmn_base + REG_DSI_14nm_PHY_CMN_CLK_CFG0),
+			readl(cmn_base + REG_DSI_14nm_PHY_CMN_CLK_CFG1),
+			readl(cmn_base + REG_DSI_14nm_PHY_CMN_LDO_CNTRL));
 	pll_14nm->phy->pll_on = true;
 
 	return 0;
@@ -1017,6 +1068,16 @@ static int dsi_14nm_phy_enable(struct msm_dsi_phy *phy,
 	/* Remove power down from PLL and all lanes */
 	writel(0xff, base + REG_DSI_14nm_PHY_CMN_CTRL_0);
 
+	/* Release the SM6125 lane clamp left by bootloader/power collapse. */
+	if (phy->clamp_base) {
+		void __iomem *clamp = phy->clamp_base + DSI_14NM_MDP_ULPS_CLAMP_ENABLE;
+		u32 val = readl(clamp);
+
+		writel(val & ~BIT(0), clamp);
+		dev_info_once(&phy->pdev->dev, "DSI PHY clamp: %#x -> %#x\n",
+			      val, readl(clamp));
+	}
+
 	return 0;
 }
 
@@ -1095,6 +1156,7 @@ const struct msm_dsi_phy_cfg dsi_phy_14nm_8953_cfgs = {
 const struct msm_dsi_phy_cfg dsi_phy_14nm_2290_cfgs = {
 	.has_phy_lane = true,
 	.ops = {
+		.parse_dt_properties = dsi_14nm_phy_parse_clamp,
 		.enable = dsi_14nm_phy_enable,
 		.disable = dsi_14nm_phy_disable,
 		.pll_init = dsi_pll_14nm_init,

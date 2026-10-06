@@ -11,6 +11,22 @@ maintainers:
 
 allOf:
   - $ref: dsi-phy-common.yaml#
+  - if:
+      properties:
+        compatible:
+          const: qcom,sm6125-dsi-phy-14nm
+    then:
+      properties:
+        reg:
+          maxItems: 4
+        reg-names:
+          maxItems: 4
+    else:
+      properties:
+        reg:
+          maxItems: 3
+        reg-names:
+          maxItems: 3
 
 properties:
   compatible:
@@ -23,16 +39,20 @@ properties:
       - qcom,sm6150-dsi-phy-14nm
 
   reg:
+    minItems: 3
     items:
       - description: dsi phy register set
       - description: dsi phy lane register set
       - description: dsi pll register set
+      - description: DSI lane clamp register set (SM6125)
 
   reg-names:
+    minItems: 3
     items:
       - const: dsi_phy
       - const: dsi_phy_lane
       - const: dsi_pll
+      - const: dsi_phy_clamp
 
   vcca-supply:
     description: Phandle to vcca regulator device node.

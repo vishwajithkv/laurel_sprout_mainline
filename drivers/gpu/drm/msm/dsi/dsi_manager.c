@@ -3,6 +3,8 @@
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  */
 
+#include <linux/of.h>
+
 #include "drm/drm_bridge_connector.h"
 
 #include "msm_kms.h"
@@ -198,6 +200,7 @@ static void dsi_mgr_phy_disable(int id)
 struct dsi_bridge {
 	struct drm_bridge base;
 	int id;
+	bool powered_on;
 };
 
 #define to_dsi_bridge(x) container_of(x, struct dsi_bridge, base)
@@ -275,7 +278,7 @@ static void dsi_mgr_bridge_power_off(struct drm_bridge *bridge)
 	dsi_mgr_phy_disable(id);
 }
 
-static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+static void dsi_mgr_bridge_start_host(struct drm_bridge *bridge)
 {
 	int id = dsi_mgr_bridge_get_id(bridge);
 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
@@ -289,12 +292,6 @@ static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
 	/* Do nothing with the host if it is slave-DSI in case of bonded DSI */
 	if (is_bonded_dsi && !IS_MASTER_DSI_LINK(id))
 		return;
-
-	ret = dsi_mgr_bridge_power_on(bridge);
-	if (ret) {
-		dev_err(&msm_dsi->pdev->dev, "Power on failed: %d\n", ret);
-		return;
-	}
 
 	ret = msm_dsi_host_enable(host);
 	if (ret) {
@@ -316,6 +313,43 @@ host1_en_fail:
 	msm_dsi_host_disable(host);
 host_en_fail:
 	dsi_mgr_bridge_power_off(bridge);
+	to_dsi_bridge(bridge)->powered_on = false;
+}
+
+static bool dsi_mgr_bridge_defer_host(struct drm_bridge *bridge)
+{
+	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(dsi_mgr_bridge_get_id(bridge));
+
+	return of_device_is_compatible(msm_dsi->pdev->dev.of_node,
+				       "qcom,sm6125-dsi-ctrl");
+}
+
+static void dsi_mgr_bridge_pre_enable(struct drm_bridge *bridge)
+{
+	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(dsi_mgr_bridge_get_id(bridge));
+	struct dsi_bridge *dsi_bridge = to_dsi_bridge(bridge);
+	int ret;
+
+	dsi_bridge->powered_on = false;
+	if (IS_BONDED_DSI() && !IS_MASTER_DSI_LINK(dsi_bridge->id))
+		return;
+
+	ret = dsi_mgr_bridge_power_on(bridge);
+	if (ret) {
+		dev_err(&msm_dsi->pdev->dev, "Power on failed: %d\n", ret);
+		return;
+	}
+	dsi_bridge->powered_on = true;
+
+	/* SM6125 panel prepare must send DCS commands before video starts. */
+	if (!dsi_mgr_bridge_defer_host(bridge))
+		dsi_mgr_bridge_start_host(bridge);
+}
+
+static void dsi_mgr_bridge_enable(struct drm_bridge *bridge)
+{
+	if (to_dsi_bridge(bridge)->powered_on && dsi_mgr_bridge_defer_host(bridge))
+		dsi_mgr_bridge_start_host(bridge);
 }
 
 void msm_dsi_manager_tpg_enable(void)
@@ -380,6 +414,7 @@ static void dsi_mgr_bridge_post_disable(struct drm_bridge *bridge)
 
 disable_phy:
 	dsi_mgr_phy_disable(id);
+	to_dsi_bridge(bridge)->powered_on = false;
 }
 
 static void dsi_mgr_bridge_mode_set(struct drm_bridge *bridge,
@@ -447,6 +482,7 @@ static int dsi_mgr_bridge_attach(struct drm_bridge *bridge,
 static const struct drm_bridge_funcs dsi_mgr_bridge_funcs = {
 	.attach = dsi_mgr_bridge_attach,
 	.pre_enable = dsi_mgr_bridge_pre_enable,
+	.enable = dsi_mgr_bridge_enable,
 	.post_disable = dsi_mgr_bridge_post_disable,
 	.mode_set = dsi_mgr_bridge_mode_set,
 	.mode_valid = dsi_mgr_bridge_mode_valid,

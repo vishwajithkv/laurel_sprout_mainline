@@ -1542,6 +1542,16 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
 	if (ret < 0) {
 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, len=%d, ret=%d\n",
 			__func__, msg->type, (*(u8 *)(msg->tx_buf)), len, ret);
+		if (of_device_is_compatible(msm_host->pdev->dev.of_node,
+					    "qcom,sm6125-dsi-ctrl"))
+			dev_err_once(&msm_host->pdev->dev,
+				"DSI first failed transfer: ctrl=%#x status=%#x clk_ctrl=%#x clk_status=%#x lane_ctrl=%#x lane_status=%#x\n",
+				dsi_read(msm_host, REG_DSI_CTRL),
+				dsi_read(msm_host, REG_DSI_STATUS0),
+				dsi_read(msm_host, REG_DSI_CLK_CTRL),
+				dsi_read(msm_host, REG_DSI_CLK_STATUS),
+				dsi_read(msm_host, REG_DSI_LANE_CTRL),
+				dsi_read(msm_host, REG_DSI_LANE_STATUS));
 		return ret;
 	} else if (ret < len) {
 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, ret=%d len=%d\n",
