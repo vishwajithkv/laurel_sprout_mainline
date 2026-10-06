@@ -41,14 +41,16 @@ showed CPU-bound payload processing and no cpufreq policies. See CPUFREQ.md for
 the attributed hardware references, SM6125 LUT limit, separate DT changes and
 required maintainer validation. These new source changes are not yet boot tested.
 
-## Native graphics profile (next build)
+## Native graphics profile
 
 The ROM now defaults to the new native A610/DPU/DSI profile, using Mesa
 Freedreno/Turnip, MSM minigbm and the upstream AIDL DRM composer. It also
 packages the freshly built Samsung panel module in recovery-as-boot and vendor.
-The first maintainer native build boots Android with Freedreno FD610 GLES,
-but the physical display is black and the composer uses its headless mode.
-Card-discovery and DSI pixel-clock corrections are prepared, pending rebuild.
+The maintainer's 2026-10-06 build #15 boots Android with physical native
+DSI output and Freedreno FD610 GLES. Live Settings scrolling confirms DEVICE
+composition for the app and status bar with no new display commit failures.
+The SM6125 prepared-PLL restart correction is part of this validated build.
+Vulkan execution and GPU power/performance remain unverified.
 The earlier SimpleDRM milestone remains the known-working display fallback. See NATIVE_GRAPHICS.md
 for firmware inputs, a separate build output, acceptance and explicit rollback.
 The standalone helper still defaults to SimpleDRM; select native explicitly with
