@@ -2500,6 +2500,16 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
 		goto fail_disable_clk;
 	}
 
+	/*
+	 * SM6125 can inherit an active bootloader video engine. The software
+	 * reset below restores an enabled controller, so quiesce its engines
+	 * first. Panel preparation must finish before bridge enable starts
+	 * video; do not carry the bootloader's enable state into that phase.
+	 */
+	if (of_device_is_compatible(msm_host->pdev->dev.of_node,
+				    "qcom,sm6125-dsi-ctrl"))
+		dsi_op_mode_config(msm_host, false, false);
+
 	dsi_timing_setup(msm_host, is_bonded_dsi);
 	dsi_sw_reset(msm_host);
 	dsi_ctrl_enable(msm_host, phy_shared_timings, phy);

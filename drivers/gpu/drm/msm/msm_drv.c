@@ -8,6 +8,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/fault-inject.h>
 #include <linux/debugfs.h>
+#include <linux/init.h>
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
 
@@ -57,6 +58,101 @@ module_param(modeset, bool, 0600);
 static bool separate_gpu_kms;
 MODULE_PARM_DESC(separate_gpu_drm, "Use separate DRM device for the GPU (0=single DRM device for both GPU and display (default), 1=two DRM devices)");
 module_param(separate_gpu_kms, bool, 0400);
+
+#ifndef MODULE
+static bool laurel_recovery_simpledrm;
+MODULE_PARM_DESC(laurel_recovery_simpledrm,
+	"Keep Mi A3 bootloader framebuffer and disable native graphics in recovery");
+module_param(laurel_recovery_simpledrm, bool, 0400);
+
+static bool __init laurel_normal_boot(void)
+{
+	const char *arg = saved_command_line;
+	size_t len;
+
+	/* Match the same exact legacy normal-boot flag as Android first init. */
+	while (*arg) {
+		arg += strspn(arg, " \t\n");
+		len = strcspn(arg, " \t\n");
+		if (len == sizeof("skip_initramfs") - 1 &&
+		    !strncmp(arg, "skip_initramfs", len))
+			return true;
+		arg += len;
+	}
+
+	return false;
+}
+
+static int __init laurel_recovery_graphics_init(void)
+{
+	static const char * const paths[] = {
+		"/soc@0/gpu@5900000",
+		"/soc@0/gmu@596a000",
+		"/soc@0/clock-controller@5990000",
+		"/soc@0/iommu@59a0000",
+		"/soc@0/display-subsystem@5e00000",
+		"/soc@0/display-subsystem@5e00000/dsi@5e94000",
+		"/soc@0/display-subsystem@5e00000/phy@5e94400",
+		"/soc@0/clock-controller@5f00000",
+	};
+	struct device_node *nodes[ARRAY_SIZE(paths)] = {};
+	struct property *props[ARRAY_SIZE(paths)] = {};
+	int i, ret = 0;
+
+	if (!laurel_recovery_simpledrm ||
+	    !of_machine_is_compatible("xiaomi,laurel-sprout"))
+		return 0;
+	if (laurel_normal_boot()) {
+		pr_info("Mi A3 graphics: normal boot, retaining native display/GPU\n");
+		return 0;
+	}
+
+	/* Prepare all properties before changing the live tree. */
+	for (i = 0; i < ARRAY_SIZE(paths); i++) {
+		nodes[i] = of_find_node_by_path(paths[i]);
+		if (!nodes[i]) {
+			ret = -ENODEV;
+			goto out;
+		}
+		props[i] = kzalloc(sizeof(*props[i]), GFP_KERNEL);
+		if (!props[i]) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		props[i]->name = kstrdup("status", GFP_KERNEL);
+		props[i]->value = kstrdup("disabled", GFP_KERNEL);
+		props[i]->length = sizeof("disabled");
+		if (!props[i]->name || !props[i]->value) {
+			ret = -ENOMEM;
+			goto out;
+		}
+	}
+	/*
+	 * Run before platform population, including MDSS IOMMU attachment.
+	 * A probe-time guard is too late to preserve bootloader scanout.
+	 */
+	for (i = 0; i < ARRAY_SIZE(paths); i++) {
+		ret = of_update_property(nodes[i], props[i]);
+		if (ret)
+			goto out;
+		props[i] = NULL; /* Live tree owns the replacement property. */
+	}
+	pr_info("Mi A3 graphics: recovery, keeping SimpleDRM; native display/GPU disabled\n");
+out:
+	for (i = 0; i < ARRAY_SIZE(paths); i++) {
+		of_node_put(nodes[i]);
+		if (props[i]) {
+			kfree(props[i]->name);
+			kfree(props[i]->value);
+			kfree(props[i]);
+		}
+	}
+	if (ret)
+		pr_err("Mi A3 recovery graphics setup failed: %d\n", ret);
+	return ret;
+}
+early_initcall(laurel_recovery_graphics_init);
+#endif
 
 DECLARE_FAULT_ATTR(fail_gem_alloc);
 DECLARE_FAULT_ATTR(fail_gem_iova);

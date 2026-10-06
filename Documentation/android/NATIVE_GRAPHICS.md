@@ -326,7 +326,162 @@ native-clock-registers-build13-partial-20261006.log under the workspace's
 out/recovery-sideload-debug/. sys.boot_completed was empty at capture time;
 do not attribute the earlier build's boot-completion result to this one.
 
-### Upstream comparison: missing Mi A3 MDSS reset
+### Recovery regression: MDSS reset consumer workaround
+
+On 2026-10-06, the maintainer isolated a black-screen/no-ADB boot failure
+using build #15 images repacked with changed DTBs and identical compressed
+kernel and ramdisk. Disabling GPU, panel, DSI host, or DSI host plus PHY did
+not restore recovery. Disabling MDSS restored recovery; enabling only DISPCC
+also booted, with its driver binding confirmed through ADB.
+
+Enabling the MDSS parent with DPU/DSI/PHY disabled failed. Omitting only its
+`resets` property restored recovery and confirmed MDSS/DISPCC binding. The
+full native DTB with only this property omitted then booted recovery: ADB
+confirmed MDSS, DPU, DSI and PHY driver binding, connected card1-DSI-1,
+renderD128 and the Samsung panel module. Pstore remained empty, so there is
+no failing-boot stack trace to identify the exact reset/power/clock operation.
+
+The external Mi A3 native DTS now deletes the inherited MDSS `resets`
+property. Shared SM6125 reset wiring, provider and original commits remain
+intact. This is a board workaround for the implicated reset sequence, not
+a generic reset-driver change. Earlier physical scanout validation below
+does not establish that resets are safe across subsequent boots.
+
+Repacked recovery is validated; the edited sources have not been compiled.
+Normal Android boot, physical display output with this image, and repeated
+Android/recovery cold and warm boots still require maintainer validation.
+Investigate power/clock/reset ordering before restoring the reset consumer.
+
+The maintainer rebuilt and flashed build #16 (6.18.32-g23215b7795ae-dirty,
+2026-10-06 21:46:47 IST). Recovery stays alive and successfully sideloads
+the full ROM to slot B: update_engine reports success and recovery records
+`Install completed with status 0`. This validates installation completion,
+not the updated slot's Android boot or reboot stability.
+
+The physical panel remains black. DRM reports connected/enabled 720x1560,
+but the first Samsung initialization transfer (`fc 5a 5a`) times out with
+`-110`, panel preparation fails, and the later brightness transfer times out
+too. The earlier repacked full-native no-reset image has the same errors.
+Thus driver binding and connector state did not establish working physical
+scanout. Recovery allocates its DRM buffers successfully; raising brightness
+does not address the preceding DSI command-transfer failure. The no-reset
+workaround still needs a reliable display initialization sequence.
+
+After that sideload, build #16 booted normal Android on slot B. Live ADB
+confirmed sys.boot_completed=1, Mesa 25.3.3 Freedreno FD610 GLES 3.2,
+renderD128 and connected/enabled DSI. The maintainer confirmed physical
+display output after a delayed startup. Kernel logs still contain the early
+panel command timeout at about 1.64 seconds and brightness timeouts through
+22.95 seconds; physical output later does not invalidate those errors or
+explain the recovery black screen. This validates one normal Android boot
+with the reset workaround. Repeated Android/recovery reboots remain pending.
+
+The maintainer subsequently confirmed an Android reboot survives with
+physical output returning after a black interval. Recovery also stays alive
+over ADB but its display is black. A fresh recovery log repeats the first
+panel timeout with CTRL=0x1f5 and STATUS0=0xb: VID_MODE_EN is clear while
+VIDEO_MODE_ENGINE_BUSY is set, alongside command-engine/DMA busy bits.
+This supports investigating inherited controller state rather than assuming
+the remaining delay is normal bootanimation startup.
+
+A new source candidate disables the SM6125 controller engines through
+`dsi_op_mode_config(..., false, false)` after link clocks and pinctrl are
+ready, before timing programming and the existing DSI software reset.
+That reset normally restores an enabled controller's saved CTRL value;
+disabling first avoids restoring bootloader engine state before panel
+preparation. The existing bridge callback still starts video after panel
+preparation. Other compatibles retain their existing power-on path.
+
+This is a local hypothesis-driven change, not an attributed upstream fix.
+It has not been compiled or device validated. Rebuild matching artifacts
+and check recovery physical output, initial panel DCS/brightness transfers,
+Android display startup and subsequent reboots. Restore only this DSI host
+change if it regresses operation; retain the separately validated board
+MDSS reset-consumer workaround. Logs are saved under
+out/recovery-sideload-debug/native-probe-isolation-20261006/.
+
+### Build #17: panel preparation succeeds; backlight activation fails
+
+Build #17 (2026-10-06 22:13:42 IST) recovery no longer logs failed panel
+preparation. Its first failed DCS transfer is instead brightness 0x51 at
+1.735 seconds, with CTRL=0x1f7 and STATUS0=0xb. Recovery's active plane has
+a recovery-owned 720x1560 framebuffer, and pixel/byte clocks are enabled at
+133436000/100077000 Hz. Thus the earlier controller change made partial
+progress; it did not fix first backlight activation. Early display SMMU
+faults still reference the bootloader framebuffer region and also warrant
+follow-up. Driver binding alone is insufficient to claim working scanout.
+
+The exact downstream Laurel panel DTS at the pinned 4.14 commit contains
+qcom,bl-update-flag=delay_until_first_frame and high-speed brightness mode:
+https://github.com/LineageOS/android_kernel_xiaomi_sm6125/blob/77d2912bc00eda19182a95a24bbe23543c792814/arch/arm64/boot/dts/xiaomi/laurel_sprout/display/dsi-panel-s6e8fco-samsung-amoled-hdp-video.dtsi
+The external panel candidate now adds a 20 ms enable delay before DRM's
+automatic backlight activation, and restores saved DSI mode flags even when
+brightness reads/writes fail. Host video enable precedes panel enable in
+the DRM bridge chain. The delay covers a nominal 60 Hz frame interval, not
+an actual first-frame completion event. This local candidate is uncompiled
+and unvalidated; the live late brightness retry result is still pending.
+
+The maintainer rebuilt that panel candidate and reports no improvement.
+The connected device was in Android during the latest capture; its vendor
+panel module SHA256 matched the rebuilt local module exactly. The first
+failure remains brightness 0x51 with a video-done wait timeout, rather than
+panel preparation. MSM msm_atomic_commit_tail calls modeset_enables before
+flush_commit, which performs DPU frame kickoff. Consequently the synchronous
+20 ms wait cannot ensure the first commit's frame has started.
+
+The revised panel candidate replaces that sleep with delayed work. Panel
+enable returns without issuing initial brightness; a worker applies the
+current backlight state after 20 ms. Early updates are deferred, saved DSI
+mode flags are restored, and panel disable/removal synchronously cancel the
+work. This allows frame kickoff to proceed but does not synchronize with an
+actual frame event. It is uncompiled and unvalidated. Check both recovery UI
+and first-boot brightness transfer; retain earlier controller and MDSS fixes.
+
+### Recovery-only SimpleDRM selection
+
+At the maintainer's request, recovery now has an independent graphics policy
+within the shared boot image. BoardConfig appends
+msm.laurel_recovery_simpledrm=1 for the native profile. A built-in MSM early
+initcall applies it only to xiaomi,laurel-sprout and only when the command
+line lacks the exact skip_initramfs normal-boot token. This matches the
+established legacy Android init selection; a temporary fastboot boot without
+that marker follows the recovery policy as well.
+
+The hook disables GPU/GMU/GPUCC/GPU-SMMU and MDSS/DSI/PHY/DISPCC status in the
+live OF tree before arch_initcall platform population, including MDSS IOMMU
+attachment. The bootloader framebuffer and memory reservations are retained.
+Normal Android returns without modifying the tree. Driver-probe guards would
+be too late to prevent native display DMA/IOMMU setup. The policy uses the
+already validated SimpleDRM recovery profile's disabled node set.
+
+Lineage's original laurel BoardConfig inherits sm6125-common, whose recovery
+configuration selects RGBX_8888 and does not request a GPU-rendering recovery
+backend. Recovery minui uses CPU framebuffer buffers; the original 4.14
+recovery log also records DRM display mode selection and allocated buffers.
+This does not establish that the downstream kernel disables its GPU driver:
+GPU probing and recovery UI rendering are different questions. No KGSL or
+proprietary recovery graphics library is being imported.
+References:
+https://github.com/LineageOS/android_device_xiaomi_laurel_sprout/blob/lineage-24.0/BoardConfig.mk
+https://github.com/LineageOS/android_device_xiaomi_sm6125-common/blob/lineage-24.0/BoardConfigCommon.mk
+
+Rebuild the kernel and full boot image to include both code and cmdline.
+Expect the recovery selection message, only the SimpleDRM DRM device, no
+Adreno render node and disabled native nodes under /proc/device-tree. The
+raw /sys/firmware/fdt is the original flattened tree and is not the live
+updated OF tree. Confirm recovery physical UI, touch and sideload; then
+confirm normal Android logs native selection, renderD128, FD610 and physical
+output. The normal-boot panel initialization delay remains a separate issue.
+This hook requires CONFIG_DRM_MSM=y and CONFIG_DRM_SIMPLEDRM=y, both present
+in the current native build config. It is omitted when MSM is a module.
+
+Latest maintainer report: after rebuilding, the recovery display works with
+this fallback. Android's delayed display transition still occurs. No new
+device logs accompany that report, so it confirms the observed recovery UI
+without isolating the effects of the accompanying native-panel changes.
+The delayed-brightness candidate is not a validated fix for the Android delay.
+
+### Upstream comparison: missing Mi A3 MDSS reset (historical)
 
 Research on 2026-10-06 found a directly relevant, device-tested upstream fix:
 bb4d28e377cf04fbee8a01322059fa14808cdfe9 by Val Packett explicitly reports
