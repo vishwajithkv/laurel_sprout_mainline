@@ -190,3 +190,6 @@ sphinx_*/
 
 # bc language scripts (not LLVM bitcode)
 !kernel/time/timeconst.bc
+
+# Required recovery integration carried for fresh Android checkouts.
+!Documentation/android/recovery-battery-ui-lock.patch

@@ -1,0 +1,107 @@
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 2388647..e083df1 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -20,18 +20,19 @@
+ #include <arpa/inet.h>
+ #include <bpf/btf.h>
+ #include <bpf/libbpf.h>
++#include <chrono>
+ #include <dirent.h>
+ #include <elf.h>
+ #include <errno.h>
+ #include <error.h>
+ #include <fcntl.h>
+-#include <fstream>
+ #include <inttypes.h>
+ #include <iostream>
+ #include <linux/unistd.h>
+ #include <log/log.h>
+ #include <net/if.h>
+ #include <optional>
++#include <sstream>
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -46,6 +47,7 @@
+ #include <sysexits.h>
+ #include <unistd.h>
+ #include <unordered_map>
++#include <utility>
+ #include <vector>
+ 
+ #include <android-base/cmsg.h>
+@@ -77,7 +79,6 @@ using android::base::Split;
+ using android::base::StartsWith;
+ using android::base::Tokenize;
+ using android::base::unique_fd;
+-using std::ifstream;
+ using std::ios;
+ using std::optional;
+ using std::string;
+@@ -148,10 +149,14 @@ typedef struct {
+ 
+ struct ElfObject {
+     const char * path;
+-    ifstream file;
++    std::istringstream file;
+ 
+-    ElfObject(const char* elfPath) : path(elfPath), file(path, ios::in | ios::binary) {
+-        if (!file.is_open()) abort();
++    ElfObject(const char* elfPath) : path(elfPath), file(ios::in | ios::binary) {
++        // Symbol/BTF fixups repeatedly seek through the same immutable APEX
++        // object. Read it once rather than issuing file reads for each symbol.
++        string contents;
++        if (!android::base::ReadFileToString(path, &contents)) abort();
++        file.str(std::move(contents));
+     }
+ 
+     int readElfHeader(Elf64_Ehdr* eh) {
+@@ -629,6 +634,7 @@ static int sanitizeBtf(struct btf *btf) {
+ 
+ static int loadBtf(ElfObject &elfObj, struct btf *btf) {
+     int ret;
++    const auto fixupStart = std::chrono::steady_clock::now();
+     for (unsigned int i = 1; i < btf__type_cnt(btf); ++i) {
+         struct btf_type *bt = (struct btf_type *)btf__type_by_id(btf, i);
+         if (!btf_is_datasec(bt)) continue;
+@@ -643,6 +649,10 @@ static int loadBtf(ElfObject &elfObj, struct btf *btf) {
+         sanitizeBtf(btf);
+     }
+ 
++    const auto loadStart = std::chrono::steady_clock::now();
++    ALOGI("BTF fixups %s took %" PRId64 " ms", elfObj.path,
++          static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
++                  loadStart - fixupStart).count()));
+     ret = btf__load_into_kernel(btf);
+     if (ret) {
+         if (errno != EINVAL) {
+@@ -666,6 +676,9 @@ static int loadBtf(ElfObject &elfObj, struct btf *btf) {
+             return ret;
+         };
+     }
++    ALOGI("BTF kernel load %s took %" PRId64 " ms", elfObj.path,
++          static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
++                  std::chrono::steady_clock::now() - loadStart).count()));
+     return 0;
+ }
+ 
+@@ -1320,6 +1333,7 @@ static int loadProgByLibbpf(const char* const elfPath) {
+ }
+ 
+ int loadProg(const char* const elfPath) {
++    const auto objectStart = std::chrono::steady_clock::now();
+     ElfObject elfObj(elfPath);
+     vector<char> license;
+     vector<codeSection> cs;
+@@ -1363,6 +1377,10 @@ int loadProg(const char* const elfPath) {
+     ret = loadCodeSections(elfObj, cs, string(license.data()));
+     if (ret) ALOGE("Failed to load programs, loadCodeSections ret=%d", ret);
+ 
++    ALOGI("ELF load %s took %" PRId64 " ms (ret=%d)", elfPath,
++          static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
++                  std::chrono::steady_clock::now() - objectStart).count()), ret);
++
+     return ret;
+ }
+ 

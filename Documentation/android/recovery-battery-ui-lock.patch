@@ -1,0 +1,76 @@
+diff --git a/recovery_ui/screen_ui.cpp b/recovery_ui/screen_ui.cpp
+index 2d9e6ec..ce6081c 100644
+--- a/recovery_ui/screen_ui.cpp
++++ b/recovery_ui/screen_ui.cpp
+@@ -979,43 +979,44 @@ void ScreenRecoveryUI::BattMonitorThreadLoop() {
+   bool is_first_call = true;
+ 
+   while (!batt_monitor_thread_stopped_) {
++    // Battery discovery can retry for five seconds on devices whose battery
++    // driver is unavailable. Keep that wait outside the UI drawing lock.
++    auto charge_status = static_cast<BatteryStatus>(batt_monitor->getChargeStatus());
++    bool charging = (charge_status != BatteryStatus::DISCHARGING &&
++                     charge_status != BatteryStatus::NOT_CHARGING &&
++                     charge_status != BatteryStatus::FULL);
++
++    android::BatteryProperty prop;
++    android::base::Timer t;
++    android::status_t status = android::UNKNOWN_ERROR;
++    while (t.duration() < 5s) {
++      status = batt_monitor->getProperty(android::BATTERY_PROP_CAPACITY, &prop);
++      if (status == android::OK || !is_first_call) {
++        break;
++      }
++
++      LOG(WARNING) << "Trying again for reinitializing battery info";
++      batt_monitor->init(config.get());
++      std::this_thread::sleep_for(100ms);
++    }
++    is_first_call = false;
++
++    // Preserve the existing fallback for devices without a battery reading.
++    if (status != android::OK) {
++      prop.valueInt64 = 100;
++    }
++    int32_t batt_capacity = static_cast<int32_t>(prop.valueInt64);
++
+     bool redraw = false;
+     {
+       std::lock_guard<std::mutex> lg(updateMutex);
+ 
+-      auto charge_status = static_cast<BatteryStatus>(batt_monitor->getChargeStatus());
+       // Treat unknown status as on charger.
+-      bool charging = (charge_status != BatteryStatus::DISCHARGING &&
+-                       charge_status != BatteryStatus::NOT_CHARGING &&
+-                       charge_status != BatteryStatus::FULL);
+       if (charging_ != charging) {
+         charging_ = charging;
+         redraw = true;
+       }
+ 
+-      android::BatteryProperty prop;
+-      android::base::Timer t;
+-      android::status_t status;
+-      while (t.duration() < 5s) {
+-        status = batt_monitor->getProperty(android::BATTERY_PROP_CAPACITY, &prop);
+-        if (status == android::OK || !is_first_call) {
+-          break;
+-        }
+-
+-        LOG(WARNING) << "Trying again for reinitializing battery info";
+-        if (redraw) update_screen_locked();
+-        batt_monitor->init(config.get());
+-        std::this_thread::sleep_for(100ms);
+-      }
+-      is_first_call = false;
+-
+-      // If we can't read battery percentage, it may be a device without battery. In this
+-      // situation, use 100 as a fake battery percentage.
+-      if (status != android::OK) {
+-        prop.valueInt64 = 100;
+-      }
+-
+-      int32_t batt_capacity = static_cast<int32_t>(prop.valueInt64);
+       if (batt_capacity_ != batt_capacity) {
+         batt_capacity_ = batt_capacity;
+         redraw = true;

@@ -1,0 +1,16 @@
+Source: out/wifi-full-stall-20261008/kernel.log
+Selected diagnostic lines; not a complete boot log.
+
+[   33.099491] laurel_wifi_start: Laurel radio stage=full
+[   33.280321] ath10k_snoc 0.wifi: WLAN boot power enabled before QMI registration
+[   33.466304] laurel_wifi_start: Radio startup requested; inspect FW_READY/CE logs for completion
+[   39.128548] ath10k_snoc 0.wifi: WLAN boot power released at firmware-ready
+[   39.130657] ath10k_snoc 0.wifi: WLAN HIF power enabled after firmware-ready
+[   39.379050] ath10k_snoc 0.wifi: CE init using register indices (DDR RRI disabled)
+[   39.379083] ath10k_snoc 0.wifi: CE init read offset 0x240044
+[   60.393039] rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:
+[   70.393835] rcu: rcu_preempt kthread starved for 2495 jiffies! g10021 f0x0 RCU_GP_DOING_FQS(6) ->state=0x0 ->cpu=6
+[   70.393874] rcu: RCU grace-period kthread stack dump:
+[   70.393962] rcu: Stack dump where RCU GP kthread last ran:
+[   78.817046] rcu: INFO: rcu_preempt detected expedited stalls on CPUs/tasks: { 3-.... 7-...D } 5649 jiffies s: 689 root: 0x88/.
+[   78.817084] rcu: blocking rcu_node structures (internal RCU debug):

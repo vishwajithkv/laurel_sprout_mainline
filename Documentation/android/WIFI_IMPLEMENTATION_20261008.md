@@ -81,11 +81,34 @@ failure. The launcher refuses incompatible already-loaded ath10k parameters.
 
 ## Build profiles and validation order
 
-The source default is deliberately **qmi-only, deferred until Android boot
-completion**. It cannot connect to Wi-Fi: no wiphy/wlan0 is expected. This
-checks the new sequencing and firmware path without entering the known CE
-stall. The module stays out of vendor modules.load and is explicitly loaded
-with dependencies and the selected parameter by laurel_wifi_start.
+### Full-mode device result, 2026-10-08
+
+The next installed ROM reports stage=full, qmi_only=N and sys.boot_completed=1
+with kernel 6.18.32-g634b198c40e1-dirty #23. Firmware and board data load;
+the boot power vote is released at 39.128548 seconds and HIF power is enabled
+at 39.130657 seconds. At 39.379083 seconds the driver logs the CE read at
+offset 0x240044, with no corresponding completion. CPU 7 RCU stalls follow
+at 60.393039 seconds and expedited stalls at 78.817046 seconds. Neither a
+wiphy nor wlan0 is registered. Full mode therefore reproduces the previous
+hardware-access stall despite the WCN3990 sequencer. Deferral permits Android
+to complete boot before the stall; it does not resolve it. The electrical or
+access-permission cause remains unproven. Preserve this result rather than
+treating it as an Android supplicant/HAL failure. The collected log is at
+out/wifi-full-stall-20261008/kernel.log.
+
+The source default is restored to **qmi-only, deferred until Android boot
+completion**, following the reproduced full-mode CE stall and the maintainer's
+report of lost display updates. This avoids the failing access and intentionally
+provides no Wi-Fi interface; it is containment, not a full Wi-Fi driver fix.
+The maintainer's build #23 booted Android and reached the QMI-only FW_READY
+checkpoint at 38.857762 seconds; firmware and board data loaded successfully.
+That checkpoint intentionally exposed no wiphy/wlan0 and did not validate CE
+access. Full mode proceeds through WLAN_MODE, CE and HTC/WMI to register the
+Wi-Fi interface; successful connectivity remains unvalidated. Select qmi-only
+as the diagnostic fallback if the CE stall returns. The module stays out of
+vendor modules.load and is explicitly loaded with dependencies and the selected
+parameter by laurel_wifi_start. The checkpoint log is saved locally at
+out/wifi-qmi-checkpoint-20261008/kernel.log.
 
 Use the normal documented full-ROM build command. Export these variables before
 invoking it, or select them in wifi/product.mk for the corresponding profile:

@@ -1,3 +1,8 @@
+> Update: the Wi-Fi candidate now selects split modem.mdt firmware and starts
+> read-only RMTFS/TQFTP in Android. See [WIFI.md](WIFI.md); the earlier manual
+> startup prerequisites below describe the modem-only baseline. Telephony is
+> still unimplemented and MPSS/WLAN runtime validation remains pending.
+
 <!-- SPDX-License-Identifier: GPL-2.0-only -->
 # SM6125 modem bringup
 

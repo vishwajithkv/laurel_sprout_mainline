@@ -1,0 +1,7 @@
+Source: out/wifi-qmi-checkpoint-20261008/kernel.log
+Selected diagnostic lines; not a complete boot log.
+
+[   33.013052] laurel_wifi_start: Laurel radio stage=qmi-only
+[   33.146162] ath10k_snoc 0.wifi: WLAN boot power enabled before QMI registration
+[   33.295360] laurel_wifi_start: Radio startup requested; inspect FW_READY/CE logs for completion
+[   38.857762] ath10k_snoc 0.wifi: WLAN QMI-only checkpoint: FW_READY; CE registration withheld; negotiation power retained

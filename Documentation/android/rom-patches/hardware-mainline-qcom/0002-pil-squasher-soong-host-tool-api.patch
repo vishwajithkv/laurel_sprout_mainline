@@ -1,3 +1,12 @@
+From 53b62da1649e6e1d1fd33fa545c897935b5459b9 Mon Sep 17 00:00:00 2001
+From: vishwajithkv <vishwajithkv@users.noreply.github.com>
+Date: Thu, 8 Oct 2026 21:58:18 +0530
+Subject: [PATCH] pil-squasher: use supported Soong host dependency API
+
+---
+ pil-squasher/soong/pil_squasher.go | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
 diff --git a/pil-squasher/soong/pil_squasher.go b/pil-squasher/soong/pil_squasher.go
 index 7ca12b8..75878ff 100644
 --- a/pil-squasher/soong/pil_squasher.go
@@ -27,3 +36,6 @@ index 7ca12b8..75878ff 100644
 +	ctx.AddFarVariationDependencies(ctx.Config().BuildOSTarget.Variations(),
 +		hostToolDepTag, "pil-squasher")
  }
+-- 
+2.43.0
+

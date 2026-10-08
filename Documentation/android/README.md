@@ -191,3 +191,8 @@ Modem source integration now carries the five attributed laurel-connectivity
 patches. This is unvalidated kernel support with manual firmware startup;
 Android telephony and the RMTFS userspace service remain pending. See the
 companion kernel Documentation/android/MODEM.md and modem-provenance.json.
+
+Wi-Fi source integration and its validation limits are documented in [WIFI.md](WIFI.md).
+
+Current publication and Wi-Fi failure: [WIFI_REVIEW.md](WIFI_REVIEW.md).
+Its patch inventory supersedes incomplete historical fresh-sync instructions.

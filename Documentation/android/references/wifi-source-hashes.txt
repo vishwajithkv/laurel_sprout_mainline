@@ -1,0 +1,3 @@
+Locally inspected reference downloads (not vendored into the source tree):
+LineageOS/android_kernel_xiaomi_sm6125 lineage-23.2 drivers/soc/qcom/icnss.c: SHA256 83a66a7af0ea3a0b4c9bed1a2795ba034e6e83e486e719c7c391fc849ec94ea1
+Sr-0w/hotdog-linux-bringup main docs/evidence/2026-08-04-mainline616-wifi-mpss.md: SHA256 4577d6b6b91c8435a7d52980089c31a2cd3497c1deedd6be22d24730d58160a1
