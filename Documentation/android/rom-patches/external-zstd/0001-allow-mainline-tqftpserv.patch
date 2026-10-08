@@ -1,0 +1,12 @@
+diff --git a/Android.bp b/Android.bp
+index 23b3fc6..d6e3438 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -81,6 +81,7 @@ cc_library {
+         "//external/squashfs-tools/squashfs-tools:__subpackages__",
+         "//external/stg:__subpackages__",
+         "//frameworks/libs/binary_translation/tools:__subpackages__",
++        "//hardware/mainline/qcom/tqftpserv",
+         "//packages/modules/adb:__subpackages__",
+         "//system/logging/logd:__subpackages__",
+         "//system/update_engine:__subpackages__",

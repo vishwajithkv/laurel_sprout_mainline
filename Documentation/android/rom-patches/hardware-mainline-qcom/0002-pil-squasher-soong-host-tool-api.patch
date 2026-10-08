@@ -1,0 +1,29 @@
+diff --git a/pil-squasher/soong/pil_squasher.go b/pil-squasher/soong/pil_squasher.go
+index 7ca12b8..75878ff 100644
+--- a/pil-squasher/soong/pil_squasher.go
++++ b/pil-squasher/soong/pil_squasher.go
+@@ -8,6 +8,7 @@ package pil_squasher
+ import (
+ 	"regexp"
+ 
++	"github.com/google/blueprint"
+ 	"github.com/google/blueprint/proptools"
+ 
+ 	"android/soong/android"
+@@ -16,6 +17,7 @@ import (
+ var (
+ 	pctx           = android.NewPackageContext("android/soong/pil_squasher")
+ 	chunkExtRegexp = regexp.MustCompile(`^\.b[0-9]{2}$`)
++	hostToolDepTag = blueprint.BaseDependencyTag{}
+ )
+ 
+ func init() {
+@@ -201,5 +203,7 @@ func (p *pilSquasher) AndroidMkEntries() []android.AndroidMkEntries {
+ }
+ 
+ func (p *pilSquasher) DepsMutator(ctx android.BottomUpMutatorContext) {
+-	ctx.AddHostToolDependencies("pil-squasher")
++	// This Soong version resolves host tools through the build-OS variant.
++	ctx.AddFarVariationDependencies(ctx.Config().BuildOSTarget.Variations(),
++		hostToolDepTag, "pil-squasher")
+ }

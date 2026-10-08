@@ -1869,6 +1869,18 @@ enum wmi_tlv_vdev_subtype {
 	WMI_TLV_VDEV_SUBTYPE_MESH_11S	= 6,
 };
 
+/* HL.3 extensions retain the legacy TLV payload prefix. */
+struct wmi_tlv_vdev_create_hl3_cmd {
+	struct wmi_vdev_create_cmd base;
+	__le32 num_cfg_txrx_streams;
+} __packed;
+
+struct wmi_tlv_vdev_txrx_streams {
+	__le32 band;
+	__le32 supported_tx_streams;
+	__le32 supported_rx_streams;
+} __packed;
+
 struct wmi_tlv_vdev_start_cmd {
 	__le32 vdev_id;
 	__le32 requestor_id;
@@ -1880,6 +1892,12 @@ struct wmi_tlv_vdev_start_cmd {
 	__le32 bcn_tx_power;
 	__le32 num_noa_descr;
 	__le32 disable_hw_ack;
+} __packed;
+
+struct wmi_tlv_vdev_start_hl3_cmd {
+	struct wmi_tlv_vdev_start_cmd base;
+	__le32 preferred_tx_streams;
+	__le32 preferred_rx_streams;
 } __packed;
 
 enum {

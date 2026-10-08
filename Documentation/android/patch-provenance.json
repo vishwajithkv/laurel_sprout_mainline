@@ -160,5 +160,51 @@
       "status": "already-supplied-by-ACK",
       "implementation": "drivers/usb/gadget/android_configfs_uevent.h; CONFIG_ANDROID_USB_CONFIGFS_UEVENT=y"
     }
-  ]
+  ],
+  "wifi_candidate": {
+    "status": "uncompiled; device validation pending",
+    "authorship": "New local adaptations; upstream history retained, no donor cherry-pick claimed",
+    "references": [
+      "https://github.com/Huabin1010/ginkgo-mainline-linux/blob/main/docs/ginkgo-wifi-complete-2026-08-18.md",
+      "https://github.com/LineageOS/android_kernel_xiaomi_sm6125/tree/lineage-23.2"
+    ],
+    "details": "WIFI.md",
+    "qcom_userspace_base": "27e403da346c84c3ba687fd613e8b15d61f2ba3c",
+    "qcom_userspace_patch": "rom-patches/hardware-mainline-qcom/0001-tqftpserv-build-and-firmware-path.patch",
+    "stock_power_sequence_followup": {
+      "date": "2026-10-08",
+      "status": "source-reviewed; uncompiled; device validation pending",
+      "authorship": "New local adaptation from stock ICNSS behavior; no donor cherry-pick claimed",
+      "changes": [
+        "Laurel-only sequential enable of existing CX/XO/RF supplies instead of asynchronous bulk enable",
+        "Release early negotiation vote at first FW_READY before core registration; later HIF acquires normal vote",
+        "Propagate boot-vote release error before CE startup"
+      ],
+      "reference": "https://github.com/LineageOS/android_kernel_xiaomi_sm6125/blob/lineage-23.2/drivers/soc/qcom/icnss.c",
+      "details": "WIFI_BOOT_REGRESSION.md"
+    },
+    "power_sequencing": {
+      "status": "upstream backports applied; Laurel adaptation unbuilt and unvalidated",
+      "upstream_commits": [
+        "a5fae429ec2ac72372bc874a0334a7fb9eadee83",
+        "0eb85f468ef515fbd2538375ef3884f6dd376382",
+        "afcf3ec615c918dd71139e7ca2f4812ceea48cd7",
+        "c4b6ad0e14f5df942eed5ebadaff84b468bd2496"
+      ],
+      "carried_commits": [
+        "6810e8a2a889",
+        "c06fe542a750",
+        "69621b238100",
+        "b13ef803c239"
+      ],
+      "author": "Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>",
+      "local_changes": [
+        "WCN3990 PMU with IO/L9, XO/L16, RF/L17, CH0/L23; no separate CH1 rail",
+        "Built-in sequencer, ath10k retains CX/L8 ownership",
+        "Laurel requires PMU match; read-only qmi_only diagnostic checkpoint",
+        "Repair backported VDDIO error propagation"
+      ],
+      "details": "WIFI_IMPLEMENTATION_20261008.md"
+    }
+  }
 }

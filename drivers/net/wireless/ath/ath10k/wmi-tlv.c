@@ -1929,6 +1929,12 @@ static struct sk_buff *ath10k_wmi_tlv_op_gen_init(struct ath10k *ar)
 		cfg->num_tids = __cpu_to_le32(TARGET_TLV_NUM_TIDS);
 	cfg->tx_chain_mask = __cpu_to_le32(0x7);
 	cfg->rx_chain_mask = __cpu_to_le32(0x7);
+	if (ar->laurel_hl3) {
+		u32 chains = GENMASK(clamp_t(u32, ar->num_rf_chains, 1, 3) - 1, 0);
+
+		cfg->tx_chain_mask = __cpu_to_le32(chains);
+		cfg->rx_chain_mask = __cpu_to_le32(chains);
+	}
 	cfg->rx_timeout_pri[0] = __cpu_to_le32(0x64);
 	cfg->rx_timeout_pri[1] = __cpu_to_le32(0x64);
 	cfg->rx_timeout_pri[2] = __cpu_to_le32(0x64);
@@ -2143,20 +2149,53 @@ ath10k_wmi_tlv_op_gen_vdev_create(struct ath10k *ar,
 	struct wmi_vdev_create_cmd *cmd;
 	struct wmi_tlv *tlv;
 	struct sk_buff *skb;
+	size_t cmd_len = ar->laurel_hl3 ?
+		sizeof(struct wmi_tlv_vdev_create_hl3_cmd) : sizeof(*cmd);
+	size_t len = sizeof(*tlv) + cmd_len;
+	unsigned int band;
+	void *ptr;
 
-	skb = ath10k_wmi_alloc_skb(ar, sizeof(*tlv) + sizeof(*cmd));
+	if (ar->laurel_hl3)
+		len += sizeof(*tlv) + 2 *
+			(sizeof(*tlv) + sizeof(struct wmi_tlv_vdev_txrx_streams));
+	skb = ath10k_wmi_alloc_skb(ar, len);
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
 
 	tlv = (void *)skb->data;
 	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_VDEV_CREATE_CMD);
-	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	tlv->len = __cpu_to_le16(cmd_len);
 	cmd = (void *)tlv->value;
 	cmd->vdev_id = __cpu_to_le32(vdev_id);
 	cmd->vdev_type = __cpu_to_le32(vdev_type);
 	cmd->vdev_subtype = __cpu_to_le32(vdev_subtype);
 	ether_addr_copy(cmd->vdev_macaddr.addr, mac_addr);
 
+	if (ar->laurel_hl3) {
+		struct wmi_tlv_vdev_create_hl3_cmd *hl3 = (void *)cmd;
+		u32 nss = clamp_t(u32, ar->num_rf_chains, 1, 2);
+
+		hl3->num_cfg_txrx_streams = __cpu_to_le32(2);
+		ptr = skb->data + sizeof(*tlv) + cmd_len;
+		tlv = ptr;
+		tlv->tag = __cpu_to_le16(WMI_TLV_TAG_ARRAY_STRUCT);
+		tlv->len = __cpu_to_le16(2 * (sizeof(*tlv) +
+					 sizeof(struct wmi_tlv_vdev_txrx_streams)));
+		ptr += sizeof(*tlv);
+		for (band = 0; band < 2; band++) {
+			struct wmi_tlv_vdev_txrx_streams *streams;
+
+			tlv = ptr;
+			tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_VDEV_TXRX_STREAMS);
+			tlv->len = __cpu_to_le16(sizeof(*streams));
+			streams = (void *)tlv->value;
+			/* WMI band masks: 2 GHz = bit 0, 5 GHz = bit 1. */
+			streams->band = __cpu_to_le32(BIT(band));
+			streams->supported_tx_streams = __cpu_to_le32(nss);
+			streams->supported_rx_streams = __cpu_to_le32(nss);
+			ptr += sizeof(*tlv) + sizeof(*streams);
+		}
+	}
 	ath10k_dbg(ar, ATH10K_DBG_WMI, "wmi tlv vdev create\n");
 	return skb;
 }
@@ -2191,6 +2230,8 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
 	struct wmi_channel *ch;
 	struct wmi_tlv *tlv;
 	struct sk_buff *skb;
+	size_t cmd_len = ar->laurel_hl3 ?
+		sizeof(struct wmi_tlv_vdev_start_hl3_cmd) : sizeof(*cmd);
 	size_t len;
 	void *ptr;
 	u32 flags = 0;
@@ -2200,7 +2241,7 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
 	if (WARN_ON(arg->ssid_len > sizeof(cmd->ssid.ssid)))
 		return ERR_PTR(-EINVAL);
 
-	len = (sizeof(*tlv) + sizeof(*cmd)) +
+	len = (sizeof(*tlv) + cmd_len) +
 	      (sizeof(*tlv) + sizeof(*ch)) +
 	      (sizeof(*tlv) + 0);
 	skb = ath10k_wmi_alloc_skb(ar, len);
@@ -2216,7 +2257,7 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
 
 	tlv = ptr;
 	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_VDEV_START_REQUEST_CMD);
-	tlv->len = __cpu_to_le16(sizeof(*cmd));
+	tlv->len = __cpu_to_le16(cmd_len);
 	cmd = (void *)tlv->value;
 	cmd->vdev_id = __cpu_to_le32(arg->vdev_id);
 	cmd->bcn_intval = __cpu_to_le32(arg->bcn_intval);
@@ -2225,6 +2266,15 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
 	cmd->bcn_tx_rate = __cpu_to_le32(arg->bcn_tx_rate);
 	cmd->bcn_tx_power = __cpu_to_le32(arg->bcn_tx_power);
 	cmd->disable_hw_ack = __cpu_to_le32(arg->disable_hw_ack);
+	if (ar->laurel_hl3) {
+		struct wmi_tlv_vdev_start_hl3_cmd *hl3 = (void *)cmd;
+		u32 nss = clamp_t(u32, ar->num_rf_chains, 1, 2);
+
+		hl3->preferred_tx_streams = __cpu_to_le32(nss);
+		hl3->preferred_rx_streams = __cpu_to_le32(nss);
+		if (ar->ht_cap_info & WMI_HT_CAP_LDPC)
+			cmd->flags |= __cpu_to_le32(BIT(3));
+	}
 
 	if (arg->ssid) {
 		cmd->ssid.ssid_len = __cpu_to_le32(arg->ssid_len);
@@ -2232,7 +2282,7 @@ ath10k_wmi_tlv_op_gen_vdev_start(struct ath10k *ar,
 	}
 
 	ptr += sizeof(*tlv);
-	ptr += sizeof(*cmd);
+	ptr += cmd_len;
 
 	tlv = ptr;
 	tlv->tag = __cpu_to_le16(WMI_TLV_TAG_STRUCT_CHANNEL);

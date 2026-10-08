@@ -130,6 +130,10 @@ void ath10k_thermal_set_throttling(struct ath10k *ar)
 
 	lockdep_assert_held(&ar->conf_mutex);
 
+	/* HL.3 advertises quiet mode but the command crashes WLAN/MPSS. */
+	if (ar->laurel_hl3)
+		return;
+
 	if (!test_bit(WMI_SERVICE_THERM_THROT, ar->wmi.svc_map))
 		return;
 

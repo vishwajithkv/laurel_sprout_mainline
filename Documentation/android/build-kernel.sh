@@ -42,6 +42,7 @@ kmake=(make ARCH=arm64 LLVM=1 HOSTCC=clang HOSTCXX=clang++ O="$out" DTC_INCLUDE=
     arch/arm64/configs/laurel_sprout.config \
     arch/arm64/configs/laurel_bringup.config \
     "${graphics_fragments[@]}" \
+    arch/arm64/configs/laurel_wifi.config \
     "$android_root/device/xiaomi/laurel_sprout/configs/ufs-bsg.config" \
     "$android_root/device/xiaomi/laurel_sprout/configs/android-boot.config"
 "${kmake[@]}" olddefconfig

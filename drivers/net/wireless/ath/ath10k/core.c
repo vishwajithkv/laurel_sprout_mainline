@@ -1303,7 +1303,27 @@ static int ath10k_core_fetch_board_data_api_1(struct ath10k *ar, int bd_ie_type)
 	const struct firmware *fw;
 	char boardname[100];
 
-	if (bd_ie_type == ATH10K_BD_IE_BOARD) {
+	if (bd_ie_type == ATH10K_BD_IE_BOARD && ar->laurel_hl3) {
+		/* Stock BDF names encode the WLFW board ID. Never use another
+		 * device's board-2.bin or silently substitute a different board.
+		 */
+		if (ar->id.qmi_board_id == 0xff)
+			scnprintf(boardname, sizeof(boardname), "bdwlan.bin");
+		else if (ar->id.qmi_board_id < 0x100)
+			scnprintf(boardname, sizeof(boardname), "bdwlan.b%02x",
+				  ar->id.qmi_board_id);
+		else
+			scnprintf(boardname, sizeof(boardname), "bdwlan.%03x",
+				  ar->id.qmi_board_id);
+		fw = ath10k_fetch_fw_file(ar, ar->hw_params.fw.dir, boardname);
+		if (IS_ERR(fw))
+			return PTR_ERR(fw);
+		ar->normal_mode_fw.board = fw;
+		ar->normal_mode_fw.board_data = fw->data;
+		ar->normal_mode_fw.board_len = fw->size;
+		ath10k_info(ar, "Laurel board data %s (%zu bytes)\n",
+			    boardname, fw->size);
+	} else if (bd_ie_type == ATH10K_BD_IE_BOARD) {
 		scnprintf(boardname, sizeof(boardname), "board-%s-%s.bin",
 			  ath10k_bus_str(ar->hif.bus), dev_name(ar->dev));
 
@@ -1664,6 +1684,9 @@ int ath10k_core_fetch_board_file(struct ath10k *ar, int bd_ie_type)
 			goto fallback;
 		}
 	}
+
+	if (ar->laurel_hl3)
+		goto fallback;
 
 	ar->bd_api = 2;
 	ret = ath10k_core_fetch_board_data_api_n(ar, boardname,
@@ -2485,6 +2508,14 @@ static int ath10k_init_hw_params(struct ath10k *ar)
 	}
 
 	ar->hw_params = *hw_params;
+
+	/* Laurel HL.3 bringup: use the CE register-index fallback rather than
+	 * programming the optional DDR index-update engine. The initial SNOC
+	 * power-up stalled a CPU after WLAN_ENABLE and before any CE interrupt.
+	 * Keep this workaround local; other WCN3990 boards retain DDR indices.
+	 */
+	if (ar->laurel_hl3)
+		ar->hw_params.rri_on_ddr = false;
 
 	ath10k_dbg(ar, ATH10K_DBG_BOOT, "Hardware name %s version 0x%x\n",
 		   ar->hw_params.name, ar->target_version);

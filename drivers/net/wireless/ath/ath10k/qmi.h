@@ -20,6 +20,7 @@ enum ath10k_qmi_driver_event_type {
 	ATH10K_QMI_EVENT_FW_READY_IND,
 	ATH10K_QMI_EVENT_FW_DOWN_IND,
 	ATH10K_QMI_EVENT_MSA_READY_IND,
+	ATH10K_QMI_EVENT_CAL_DOWNLOAD_IND,
 	ATH10K_QMI_EVENT_MAX,
 };
 
@@ -93,6 +94,7 @@ struct ath10k_qmi {
 	struct qmi_handle qmi_hdl;
 	struct sockaddr_qrtr sq;
 	struct work_struct event_work;
+	struct delayed_work cal_report_work;
 	struct workqueue_struct *event_wq;
 	struct list_head event_list;
 	spinlock_t event_lock; /* spinlock for qmi event list */

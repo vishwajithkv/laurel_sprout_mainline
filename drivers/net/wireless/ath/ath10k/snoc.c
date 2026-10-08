@@ -25,6 +25,13 @@
 #include "htc.h"
 #include "snoc.h"
 
+/* Read-only: choose the diagnostic stage before loading the module.
+ * FW_READY is retained, but no CE register or WLAN_MODE is touched.
+ */
+static bool qmi_only;
+module_param(qmi_only, bool, 0444);
+MODULE_PARM_DESC(qmi_only, "Stop Laurel bringup at FW_READY before CE access");
+
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
 #define CE_POLL_PIPE 4
 #define ATH10K_SNOC_WAKE_IRQ 2
@@ -477,6 +484,9 @@ static void ath10k_snoc_write32(struct ath10k *ar, u32 offset, u32 value)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 
+	if (ar_snoc->trace_init_mmio)
+		ath10k_info(ar, "CE init write offset %#x value %#x\n",
+			    offset, value);
 	iowrite32(value, ar_snoc->mem + offset);
 }
 
@@ -485,7 +495,12 @@ static u32 ath10k_snoc_read32(struct ath10k *ar, u32 offset)
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	u32 val;
 
+	if (ar_snoc->trace_init_mmio)
+		ath10k_info(ar, "CE init read offset %#x\n", offset);
 	val = ioread32(ar_snoc->mem + offset);
+	if (ar_snoc->trace_init_mmio)
+		ath10k_info(ar, "CE init read completed offset %#x value %#x\n",
+			    offset, val);
 
 	return val;
 }
@@ -1015,13 +1030,44 @@ static int ath10k_snoc_wlan_enable(struct ath10k *ar,
 	}
 
 	return ath10k_qmi_wlan_enable(ar, &cfg, mode,
-				       NULL);
+				       ar->laurel_hl3 ? "ath10k-laurel-hl3" : NULL);
+}
+
+static int ath10k_snoc_enable_supplies(struct ath10k *ar)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	int i, ret, unwind_ret;
+
+	if (!ar->laurel_hl3)
+		return regulator_bulk_enable(ar_snoc->num_vregs, ar_snoc->vregs);
+
+	/* Stock Trinket ICNSS enables CX, XO and RF supplies in this order.
+	 * regulator_bulk_enable() schedules consumers asynchronously, so an
+	 * ordered array alone does not preserve the stock power sequence.
+	 */
+	for (i = 0; i < ar_snoc->num_vregs; i++) {
+		ret = regulator_enable(ar_snoc->vregs[i].consumer);
+		if (ret) {
+			ath10k_err(ar, "failed to enable WLAN supply %s: %d\n",
+				   ar_snoc->vregs[i].supply, ret);
+			/* Drop only references acquired by this invocation. */
+			unwind_ret = regulator_bulk_disable(i, ar_snoc->vregs);
+			if (unwind_ret)
+				ath10k_warn(ar, "failed to unwind WLAN supplies: %d\n",
+					    unwind_ret);
+			return ret;
+		}
+		ath10k_info(ar, "WLAN ordered supply %s enabled\n",
+			    ar_snoc->vregs[i].supply);
+	}
+
+	return 0;
 }
 
 static int ath10k_hw_power_on(struct ath10k *ar)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
-	int ret;
+	int i, ret;
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "soc power on\n");
 
@@ -1029,9 +1075,18 @@ static int ath10k_hw_power_on(struct ath10k *ar)
 	if (ret)
 		return ret;
 
-	ret = regulator_bulk_enable(ar_snoc->num_vregs, ar_snoc->vregs);
+	ret = ath10k_snoc_enable_supplies(ar);
 	if (ret)
 		goto pwrseq_off;
+
+	if (ar->laurel_hl3) {
+		ath10k_info(ar, "WLAN power sequencer %s enabled\n",
+			    ar_snoc->pwrseq ? "WCN3990" : "legacy");
+		for (i = 0; i < ar_snoc->num_vregs; i++)
+			ath10k_info(ar, "WLAN supply %s voltage %d uV\n",
+				    ar_snoc->vregs[i].supply,
+				    regulator_get_voltage(ar_snoc->vregs[i].consumer));
+	}
 
 	ret = clk_bulk_prepare_enable(ar_snoc->num_clks, ar_snoc->clks);
 	if (ret)
@@ -1065,6 +1120,22 @@ static int ath10k_hw_power_off(struct ath10k *ar)
 	return ret_vreg ? : ret_seq;
 }
 
+static int ath10k_snoc_release_boot_power(struct ath10k *ar)
+{
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
+	int ret;
+
+	if (!ar_snoc->boot_power_vote)
+		return 0;
+
+	ar_snoc->boot_power_vote = false;
+	ret = ath10k_hw_power_off(ar);
+	if (ret)
+		ath10k_warn(ar, "failed to release WLAN boot power vote: %d\n", ret);
+
+	return ret;
+}
+
 static void ath10k_snoc_wlan_disable(struct ath10k *ar)
 {
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
@@ -1092,6 +1163,7 @@ static void ath10k_snoc_hif_power_down(struct ath10k *ar)
 static int ath10k_snoc_hif_power_up(struct ath10k *ar,
 				    enum ath10k_firmware_mode fw_mode)
 {
+	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	int ret;
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 driver state = %d\n",
@@ -1103,12 +1175,18 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar,
 		return ret;
 	}
 
+	if (ar->laurel_hl3)
+		ath10k_info(ar, "WLAN HIF power enabled after firmware-ready\n");
+
 	ret = ath10k_snoc_wlan_enable(ar, fw_mode);
 	if (ret) {
 		ath10k_err(ar, "failed to enable wcn3990: %d\n", ret);
 		goto err_hw_power_off;
 	}
 
+	ar_snoc->trace_init_mmio = ar->laurel_hl3;
+	if (ar->laurel_hl3)
+		ath10k_info(ar, "CE init using register indices (DDR RRI disabled)\n");
 	ath10k_ce_alloc_rri(ar);
 
 	ret = ath10k_snoc_init_pipes(ar);
@@ -1118,10 +1196,14 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar,
 	}
 
 	ath10k_ce_enable_interrupts(ar);
+	ar_snoc->trace_init_mmio = false;
+	if (ar->laurel_hl3)
+		ath10k_info(ar, "CE init completed, interrupts enabled\n");
 
 	return 0;
 
 err_free_rri:
+	ar_snoc->trace_init_mmio = false;
 	ath10k_ce_free_rri(ar);
 	ath10k_snoc_wlan_disable(ar);
 
@@ -1377,6 +1459,22 @@ int ath10k_snoc_fw_indication(struct ath10k *ar, u64 type)
 	case ATH10K_QMI_EVENT_FW_READY_IND:
 		if (test_bit(ATH10K_SNOC_FLAG_REGISTERED, &ar_snoc->flags)) {
 			ath10k_core_start_recovery(ar);
+			break;
+		}
+
+		/* Stock ICNSS releases its negotiation vote at FW_READY, before
+		 * probing the host driver. HIF power-up later acquires a fresh vote.
+		 * Do not cycle normal HIF references during firmware recovery.
+		 */
+		if (ar_snoc->boot_power_vote) {
+			ret = ath10k_snoc_release_boot_power(ar);
+			if (ret)
+				return ret;
+			ath10k_info(ar, "WLAN boot power released at firmware-ready\n");
+		}
+
+		if (ar->laurel_hl3 && qmi_only) {
+			ath10k_info(ar, "WLAN QMI-only checkpoint: FW_READY; CE registration withheld\n");
 			break;
 		}
 
@@ -1751,6 +1849,7 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	ar->laurel_hl3 = of_machine_is_compatible("xiaomi,laurel-sprout");
 	ar_snoc = ath10k_snoc_priv(ar);
 	ar_snoc->dev = pdev;
 	platform_set_drvdata(pdev, ar);
@@ -1797,7 +1896,7 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 	if (IS_ERR(ar_snoc->pwrseq)) {
 		ret = PTR_ERR(ar_snoc->pwrseq);
 		ar_snoc->pwrseq = NULL;
-		if (ret != -EPROBE_DEFER)
+		if (ret != -EPROBE_DEFER || ar->laurel_hl3)
 			goto err_free_irq;
 
 		ar_snoc->num_vregs = ARRAY_SIZE(ath10k_regulators);
@@ -1852,10 +1951,22 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 		goto err_free_irq;
 	}
 
+	/* Laurel ICNSS powers WLAN before the first WLFW negotiation. Keep
+	 * one negotiation reference until FW_READY; HIF owns a separate
+	 * reference after registration. Shared rails need not physically cycle.
+	 */
+	if (ar->laurel_hl3) {
+		ret = ath10k_hw_power_on(ar);
+		if (ret)
+			goto err_fw_deinit;
+		ar_snoc->boot_power_vote = true;
+		ath10k_info(ar, "WLAN boot power enabled before QMI registration\n");
+	}
+
 	ret = ath10k_qmi_init(ar, msa_size);
 	if (ret) {
 		ath10k_warn(ar, "failed to register wlfw qmi client: %d\n", ret);
-		goto err_fw_deinit;
+		goto err_boot_power_off;
 	}
 
 	ret = ath10k_modem_init(ar);
@@ -1868,6 +1979,9 @@ static int ath10k_snoc_probe(struct platform_device *pdev)
 
 err_qmi_deinit:
 	ath10k_qmi_deinit(ar);
+
+err_boot_power_off:
+	ath10k_snoc_release_boot_power(ar);
 
 err_fw_deinit:
 	ath10k_fw_deinit(ar);
@@ -1898,6 +2012,7 @@ static int ath10k_snoc_free_resources(struct ath10k *ar)
 	ath10k_snoc_release_resource(ar);
 	ath10k_modem_deinit(ar);
 	ath10k_qmi_deinit(ar);
+	ath10k_snoc_release_boot_power(ar);
 	ath10k_core_destroy(ar);
 
 	return 0;

@@ -1,0 +1,73 @@
+diff --git a/tqftpserv/Android.bp b/tqftpserv/Android.bp
+index b2c5090..2421bfd 100644
+--- a/tqftpserv/Android.bp
++++ b/tqftpserv/Android.bp
+@@ -1,9 +1,11 @@
+ cc_binary {
+     name: "tqftpserv",
+     vendor: true,
++    cflags: ["-DHAVE_ZSTD"],
+     srcs: [
+         "tqftpserv.c",
+         "translate.c",
++        "zstd-decompress.c",
+     ],
+-    shared_libs: ["libqrtr"],
++    shared_libs: ["libqrtr", "libzstd"],
+ }
+diff --git a/tqftpserv/translate.c b/tqftpserv/translate.c
+index 2416e8c..5612bd3 100644
+--- a/tqftpserv/translate.c
++++ b/tqftpserv/translate.c
+@@ -35,15 +35,19 @@ static int open_maybe_compressed(const char *path);
+ static void read_fw_path_from_sysfs(char *outbuffer, size_t bufsize)
+ {
+ 	size_t pathsize;
++	if (!bufsize)
++		return;
++	outbuffer[0] = '\0';
+ 	FILE *f = fopen("/sys/module/firmware_class/parameters/path", "rt");
+ 	if (!f)
+ 		return;
+-	pathsize = fread(outbuffer, sizeof(char), bufsize, f);
++	pathsize = fread(outbuffer, sizeof(char), bufsize - 1, f);
+ 	fclose(f);
+ 	if (pathsize == 0)
+ 		return;
+-	/* truncate newline */
+-	outbuffer[pathsize - 1] = '\0';
++	outbuffer[pathsize] = '\0';
++	if (outbuffer[pathsize - 1] == '\n')
++		outbuffer[pathsize - 1] = '\0';
+ }
+ 
+ /**
+@@ -103,14 +107,17 @@ static int translate_readonly(const char *file)
+ 		if (firmware_fd < 0)
+ 			continue;
+ 
+-		n = read(firmware_fd, firmware_value, sizeof(firmware_value));
++		n = read(firmware_fd, firmware_value, sizeof(firmware_value) - 1);
+ 		close(firmware_fd);
+ 		if (n < 0) {
+ 			continue;
+ 		}
+ 		firmware_value[n] = '\0';
+ 
++		free(firmware_value_copy);
+ 		firmware_value_copy = strdup(firmware_value);
++		if (!firmware_value_copy)
++			break;
+ 		firmware_path = dirname(firmware_value_copy);
+ 
+ 		/* first try path from sysfs */
+@@ -232,7 +239,8 @@ static int open_maybe_compressed(const char *path)
+ 	if (access(path, F_OK) == 0)
+ 		return open(path, O_RDONLY);
+ 
+-	asprintf(&path_with_zstd_extension, "%s%s", path, ZSTD_EXTENSION);
++	if (asprintf(&path_with_zstd_extension, "%s%s", path, ZSTD_EXTENSION) < 0)
++		return -1;
+ 
+ 	if (access(path_with_zstd_extension, F_OK) == 0)
+ 		fd = zstd_decompress_file(path_with_zstd_extension);

@@ -1520,11 +1520,23 @@ static int ath10k_vdev_start_restart(struct ath10k_vif *arvif,
 	arg.vdev_id = arvif->vdev_id;
 	arg.dtim_period = arvif->dtim_period;
 	arg.bcn_intval = arvif->beacon_interval;
+	if (ar->laurel_hl3) {
+		arg.dtim_period = arg.dtim_period ?: 1;
+		arg.bcn_intval = arg.bcn_intval ?: 100;
+	}
 
 	arg.channel.freq = chandef->chan->center_freq;
 	arg.channel.band_center_freq1 = chandef->center_freq1;
 	arg.channel.band_center_freq2 = chandef->center_freq2;
 	arg.channel.mode = chan_to_phymode(chandef);
+	if (ar->laurel_hl3) {
+		arg.channel.allow_ht = arg.channel.mode >= MODE_11NA_HT20 &&
+			arg.channel.mode < MODE_UNKNOWN;
+		arg.channel.allow_vht = arg.channel.mode >= MODE_11AC_VHT20 &&
+			arg.channel.mode < MODE_UNKNOWN;
+		arg.channel.ht40plus = arg.channel.allow_ht &&
+			chandef->center_freq1 > chandef->chan->center_freq;
+	}
 
 	arg.channel.min_power = 0;
 	arg.channel.max_power = chandef->chan->max_power * 2;
@@ -3435,12 +3447,21 @@ static int ath10k_update_channel_list(struct ath10k *ar)
 
 			/* FIXME: when should we really allow VHT? */
 			ch->allow_vht = true;
+			/* Keep legacy scan modes. HL.3 rejects HT/VHT flags on
+			 * 11a/11g; association still negotiates firmware HT/VHT.
+			 */
+			if (ar->laurel_hl3) {
+				ch->allow_ht = false;
+				ch->allow_vht = false;
+			}
 
 			ch->allow_ibss =
 				!(channel->flags & IEEE80211_CHAN_NO_IR);
 
 			ch->ht40plus =
 				!(channel->flags & IEEE80211_CHAN_NO_HT40PLUS);
+			if (ar->laurel_hl3)
+				ch->ht40plus = false;
 
 			ch->chan_radar =
 				!!(channel->flags & IEEE80211_CHAN_RADAR);
@@ -7490,6 +7511,29 @@ static void ath10k_mac_vif_stations_tid_conf(void *data,
 	ieee80211_queue_work(iter_data->ar->hw, &arsta->tid_config_wk);
 }
 
+/* HL.3 needs the AP peer before vdev-start, not a STA self-peer. */
+static int ath10k_mac_finish_delayed_vdev_start(struct ath10k_vif *arvif)
+{
+	struct ath10k *ar = arvif->ar;
+	int ret;
+
+	lockdep_assert_held(&ar->conf_mutex);
+	if (!arvif->vdev_start_delayed)
+		return 0;
+	ret = ath10k_vdev_start(arvif, &arvif->delayed_chandef);
+	if (ret)
+		return ret;
+	arvif->is_started = true;
+	ret = ath10k_mac_vif_setup_ps(arvif);
+	if (ret) {
+		ath10k_vdev_stop(arvif);
+		arvif->is_started = false;
+		return ret;
+	}
+	arvif->vdev_start_delayed = false;
+	return 0;
+}
+
 static int ath10k_sta_state(struct ieee80211_hw *hw,
 			    struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta,
@@ -7596,6 +7640,18 @@ static int ath10k_sta_state(struct ieee80211_hw *hw,
 						ATH10K_MAX_NUM_PEER_IDS);
 
 		spin_unlock_bh(&ar->data_lock);
+		if (ar->laurel_hl3 && vif->type == NL80211_IFTYPE_STATION &&
+		    !sta->tdls) {
+			arvif->bss_peer_created = true;
+			ret = ath10k_mac_finish_delayed_vdev_start(arvif);
+			if (ret) {
+				arvif->bss_peer_created = false;
+				ath10k_peer_delete(ar, arvif->vdev_id, sta->addr);
+				ath10k_mac_dec_num_stations(arvif, sta);
+				kfree(arsta->tx_stats);
+				goto exit;
+			}
+		}
 
 		if (!sta->tdls)
 			goto exit;
@@ -7635,6 +7691,15 @@ static int ath10k_sta_state(struct ieee80211_hw *hw,
 		ath10k_dbg(ar, ATH10K_DBG_STA,
 			   "mac vdev %d peer delete %pM sta %p (sta gone)\n",
 			   arvif->vdev_id, sta->addr, sta);
+		if (ar->laurel_hl3 && vif->type == NL80211_IFTYPE_STATION &&
+		    !sta->tdls) {
+			arvif->bss_peer_created = false;
+			if (arvif->is_started) {
+				ath10k_vdev_stop(arvif);
+				arvif->is_started = false;
+				arvif->vdev_start_delayed = true;
+			}
+		}
 
 		if (sta->tdls) {
 			ret = ath10k_mac_tdls_peer_update(ar, arvif->vdev_id,
@@ -8780,6 +8845,12 @@ ath10k_mac_update_vif_chan(struct ath10k *ar,
 			   vifs[i].old_ctx->def.width,
 			   vifs[i].new_ctx->def.width);
 
+		if (ar->laurel_hl3) {
+			arvif->delayed_chandef = vifs[i].new_ctx->def;
+			if (arvif->vdev_start_delayed)
+				continue;
+		}
+
 		if (WARN_ON(!arvif->is_started))
 			continue;
 
@@ -8804,6 +8875,12 @@ ath10k_mac_update_vif_chan(struct ath10k *ar,
 
 	for (i = 0; i < n_vifs; i++) {
 		arvif = (void *)vifs[i].vif->drv_priv;
+
+		if (ar->laurel_hl3) {
+			arvif->delayed_chandef = vifs[i].new_ctx->def;
+			if (arvif->vdev_start_delayed)
+				continue;
+		}
 
 		if (WARN_ON(!arvif->is_started))
 			continue;
@@ -9003,6 +9080,15 @@ ath10k_mac_op_assign_vif_chanctx(struct ieee80211_hw *hw,
 		return -EBUSY;
 	}
 
+	if (ar->laurel_hl3 && vif->type == NL80211_IFTYPE_STATION) {
+		arvif->delayed_chandef = ctx->def;
+		if (!arvif->bss_peer_created) {
+			arvif->vdev_start_delayed = true;
+			mutex_unlock(&ar->conf_mutex);
+			return 0;
+		}
+	}
+
 	ret = ath10k_vdev_start(arvif, &ctx->def);
 	if (ret) {
 		ath10k_warn(ar, "failed to start vdev %i addr %pM on freq %d: %d\n",
@@ -9077,6 +9163,12 @@ ath10k_mac_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
 	ath10k_dbg(ar, ATH10K_DBG_MAC,
 		   "mac chanctx unassign ptr %p vdev_id %i\n",
 		   ctx, arvif->vdev_id);
+
+	if (arvif->vdev_start_delayed) {
+		arvif->vdev_start_delayed = false;
+		mutex_unlock(&ar->conf_mutex);
+		return;
+	}
 
 	WARN_ON(!arvif->is_started);
 

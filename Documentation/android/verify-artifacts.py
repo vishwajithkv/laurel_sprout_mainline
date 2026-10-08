@@ -29,6 +29,7 @@ def check_config(out, profile):
         QCOM_SCM QCOM_SMEM QCOM_SMD_RPM QCOM_RPMPD QCOM_CLK_SMD_RPM
         REGULATOR_QCOM_SMD_RPM REGULATOR_QCOM_SPMI ARM_SMMU
         QCOM_SPMI_ADC5 QCOM_SPMI_ADC_TM5 QCOM_SPMI_TEMP_ALARM
+        VFAT_FS NLS_CODEPAGE_437 NLS_ISO8859_1
         EXT4_FS EXT4_FS_SECURITY F2FS_FS F2FS_FS_SECURITY F2FS_UNFAIR_RWSEM BLK_CGROUP
         TMPFS TMPFS_XATTR CONFIGFS_FS SECURITY_SELINUX
         ANDROID_BINDER_IPC ANDROID_BINDERFS FTRACE FTRACE_SYSCALLS EVENT_TRACING
@@ -47,10 +48,13 @@ def check_config(out, profile):
         PHY_QCOM_QUSB2 USB_ROLE_SWITCH TYPEC_QCOM_PMIC REGULATOR_QCOM_USB_VBUS
         USB_CONFIGFS USB_CONFIGFS_F_FS ANDROID_USB_CONFIGFS_UEVENT
         MODULES PSTORE PSTORE_RAM PSTORE_CONSOLE PSTORE_PMSG
+        POWER_SEQUENCING POWER_SEQUENCING_QCOM_WCN
     """.split()
     for symbol in builtins:
         require(config.get(symbol) == "y", f"CONFIG_{symbol} must be built in; found {config.get(symbol, 'n')}")
-    excluded = "RUST ASHMEM MODULE_COMPRESS FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX SND BT WLAN DRM_CLIENT_LOG".split()
+    for symbol in ("CFG80211", "MAC80211", "ATH_COMMON", "ATH10K", "ATH10K_SNOC"):
+        require(config.get(symbol) == "m", f"Wi-Fi requires CONFIG_{symbol}=m")
+    excluded = "RUST ASHMEM MODULE_COMPRESS FRAMEBUFFER_CONSOLE MMC RTC_DRV_PM8XXX SND BT DRM_CLIENT_LOG".split()
     if profile == "native":
         native_builtins = """
             DRM_MSM DRM_MSM_KMS DRM_MSM_MDSS DRM_MSM_DPU DRM_MSM_DSI
@@ -128,6 +132,8 @@ def main():
     modules = list(modules_root.rglob("*.ko"))
     require(modules or "m" not in config.values(), "Config requests modules but none were staged")
     require(not list(modules_root.rglob("*.ko.*")), "Compressed modules cannot be collected by this ROM setup")
+    for name in ("cfg80211.ko", "mac80211.ko", "ath.ko", "ath10k_core.ko", "ath10k_snoc.ko"):
+        require(any(m.name == name for m in modules), f"Missing Wi-Fi module: {name}")
     if args.profile == "native":
         require(any(m.name == "panel-samsung-s6e8fco.ko" for m in modules), "Missing freshly built Samsung panel module")
     for module in modules:

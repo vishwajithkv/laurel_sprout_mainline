@@ -591,6 +591,9 @@ struct ath10k_vif {
 	struct ieee80211_vif *vif;
 
 	bool is_started;
+	bool bss_peer_created;
+	bool vdev_start_delayed;
+	struct cfg80211_chan_def delayed_chandef;
 	bool is_up;
 	bool spectral_enabled;
 	bool ps;
@@ -1009,6 +1012,8 @@ struct ath10k_bus_params {
 };
 
 struct ath10k {
+	/* Laurel ships WLAN.HL.3.x, with extended WMI/QMI semantics. */
+	bool laurel_hl3;
 	struct ath_common ath_common;
 	struct ieee80211_hw *hw;
 	struct ieee80211_ops *ops;

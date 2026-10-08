@@ -61,6 +61,8 @@ struct ath10k_snoc {
 	struct platform_device *dev;
 	struct ath10k *ar;
 	unsigned int use_tz;
+	bool trace_init_mmio;
+	bool boot_power_vote;
 	struct ath10k_firmware {
 		struct device *dev;
 		dma_addr_t fw_start_addr;

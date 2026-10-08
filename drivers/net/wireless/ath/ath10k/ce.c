@@ -1937,6 +1937,9 @@ void ath10k_ce_alloc_rri(struct ath10k *ar)
 	u32 ce_base_addr;
 	struct ath10k_ce *ce = ath10k_ce_priv(ar);
 
+	if (!ar->hw_params.rri_on_ddr)
+		return;
+
 	ce->vaddr_rri = dma_alloc_coherent(ar->dev,
 					   (CE_COUNT * sizeof(u32)),
 					   &ce->paddr_rri, GFP_KERNEL);
@@ -1964,8 +1967,12 @@ void ath10k_ce_free_rri(struct ath10k *ar)
 {
 	struct ath10k_ce *ce = ath10k_ce_priv(ar);
 
+	if (!ce->vaddr_rri)
+		return;
+
 	dma_free_coherent(ar->dev, (CE_COUNT * sizeof(u32)),
 			  ce->vaddr_rri,
 			  ce->paddr_rri);
+	ce->vaddr_rri = NULL;
 }
 EXPORT_SYMBOL(ath10k_ce_free_rri);

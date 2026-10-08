@@ -447,7 +447,12 @@ ath10k_qmi_cfg_send_sync_msg(struct ath10k *ar,
 	if (ret < 0)
 		goto out;
 
-	req->host_version_valid = 0;
+	if (version) {
+		req->host_version_valid = 1;
+		strscpy(req->host_version, version, sizeof(req->host_version));
+		ath10k_dbg(ar, ATH10K_DBG_QMI, "WLAN_CFG host version %s\n",
+			   req->host_version);
+	}
 
 	req->tgt_cfg_valid = 1;
 	if (config->num_ce_tgt_cfg > QMI_WLFW_MAX_NUM_CE_V01)
@@ -662,6 +667,17 @@ static int ath10k_qmi_host_cap_send_sync(struct ath10k_qmi *qmi)
 
 	req.daemon_support_valid = 1;
 	req.daemon_support = 0;
+	if (ar->laurel_hl3) {
+		/* Factory NV is supplied by RMTFS. Host CAL files are empty,
+		 * but HL.3 still requires DOWNLOAD replies followed by REPORT.
+		 */
+		req.bdf_support_valid = 1;
+		req.bdf_support = 1;
+		req.cal_filesys_support_valid = 1;
+		req.cal_filesys_support = 1;
+		req.cal_done_valid = 1;
+		req.cal_done = 0;
+	}
 
 	ret = qmi_txn_init(&qmi->qmi_hdl, &txn, wlfw_host_cap_resp_msg_v01_ei,
 			   &resp);
@@ -763,6 +779,10 @@ ath10k_qmi_ind_register_send_sync_msg(struct ath10k_qmi *qmi)
 	req.fw_ready_enable = 1;
 	req.msa_ready_enable_valid = 1;
 	req.msa_ready_enable = 1;
+	if (ar->laurel_hl3) {
+		req.initiate_cal_download_enable_valid = 1;
+		req.initiate_cal_download_enable = 1;
+	}
 
 	if (ar_snoc->xo_cal_supported) {
 		req.xo_cal_enable_valid = 1;
@@ -898,6 +918,7 @@ static void ath10k_qmi_event_server_exit(struct ath10k_qmi *qmi)
 	struct ath10k *ar = qmi->ar;
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 
+	cancel_delayed_work(&qmi->cal_report_work);
 	ath10k_qmi_remove_msa_permission(qmi);
 	ath10k_core_free_board_files(ar);
 	if (!test_bit(ATH10K_SNOC_FLAG_UNREGISTERING, &ar_snoc->flags) &&
@@ -906,6 +927,63 @@ static void ath10k_qmi_event_server_exit(struct ath10k_qmi *qmi)
 
 	ath10k_snoc_fw_indication(ar, ATH10K_QMI_EVENT_FW_DOWN_IND);
 	ath10k_dbg(ar, ATH10K_DBG_QMI, "wifi fw qmi service disconnected\n");
+}
+
+static void ath10k_qmi_cal_report_work(struct work_struct *work)
+{
+	struct ath10k_qmi *qmi = container_of(to_delayed_work(work),
+						   struct ath10k_qmi, cal_report_work);
+
+	if (qmi->state == ATH10K_QMI_STATE_INIT_DONE)
+		ath10k_qmi_send_cal_report_req(qmi);
+}
+
+static void ath10k_qmi_empty_cal_download(struct ath10k_qmi *qmi, u32 cal_id)
+{
+	struct wlfw_cal_download_resp_msg_v01 resp = {};
+	struct wlfw_cal_download_req_msg_v01 *req;
+	struct qmi_txn txn;
+	int ret;
+
+	/* Keep the 6 KiB QMI payload off the kernel stack. */
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		cancel_delayed_work(&qmi->cal_report_work);
+		ath10k_warn(qmi->ar, "HL.3 CAL allocation failed\n");
+		return;
+	}
+	req->valid = 1;
+	req->file_id_valid = 1;
+	req->file_id = cal_id;
+	req->total_size_valid = 1;
+	req->seg_id_valid = 1;
+	req->data_valid = 1;
+	req->end_valid = 1;
+	req->end = 1;
+	ret = qmi_txn_init(&qmi->qmi_hdl, &txn,
+			   wlfw_cal_download_resp_msg_v01_ei, &resp);
+	if (ret)
+		goto out;
+	ret = qmi_send_request(&qmi->qmi_hdl, NULL, &txn,
+			       QMI_WLFW_CAL_DOWNLOAD_REQ_V01,
+			       WLFW_CAL_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_cal_download_req_msg_v01_ei, req);
+	if (ret) {
+		qmi_txn_cancel(&txn);
+		goto out;
+	}
+	ret = qmi_txn_wait(&txn, ATH10K_QMI_TIMEOUT * HZ);
+	if (!ret && resp.resp.result != QMI_RESULT_SUCCESS_V01)
+		ret = -EINVAL;
+out:
+	kfree(req);
+	if (ret) {
+		cancel_delayed_work(&qmi->cal_report_work);
+		ath10k_warn(qmi->ar, "HL.3 CAL download %u failed: %d\n", cal_id, ret);
+		return;
+	}
+	mod_delayed_work(qmi->event_wq, &qmi->cal_report_work,
+			 msecs_to_jiffies(200));
 }
 
 static void ath10k_qmi_event_msa_ready(struct ath10k_qmi *qmi)
@@ -920,7 +998,11 @@ static void ath10k_qmi_event_msa_ready(struct ath10k_qmi *qmi)
 	if (ret)
 		goto out;
 
-	ret = ath10k_qmi_send_cal_report_req(qmi);
+	if (qmi->ar->laurel_hl3)
+		mod_delayed_work(qmi->event_wq, &qmi->cal_report_work,
+				 msecs_to_jiffies(200));
+	else
+		ret = ath10k_qmi_send_cal_report_req(qmi);
 
 out:
 	return;
@@ -954,7 +1036,26 @@ static void ath10k_qmi_msa_ready_ind(struct qmi_handle *qmi_hdl,
 	ath10k_qmi_driver_event_post(qmi, ATH10K_QMI_EVENT_MSA_READY_IND, NULL);
 }
 
+static void ath10k_qmi_cal_download_ind(struct qmi_handle *hdl,
+				      struct sockaddr_qrtr *sq,
+				      struct qmi_txn *txn, const void *data)
+{
+	struct ath10k_qmi *qmi = container_of(hdl, struct ath10k_qmi, qmi_hdl);
+	const struct wlfw_initiate_cal_download_ind_msg_v01 *ind = data;
+
+	if (qmi->ar->laurel_hl3)
+		ath10k_qmi_driver_event_post(qmi, ATH10K_QMI_EVENT_CAL_DOWNLOAD_IND,
+					     (void *)(unsigned long)ind->cal_id);
+}
+
 static const struct qmi_msg_handler qmi_msg_handler[] = {
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01,
+		.ei = wlfw_initiate_cal_download_ind_msg_v01_ei,
+		.decoded_size = sizeof(struct wlfw_initiate_cal_download_ind_msg_v01),
+		.fn = ath10k_qmi_cal_download_ind,
+	},
 	{
 		.type = QMI_INDICATION,
 		.msg_id = QMI_WLFW_FW_READY_IND_V01,
@@ -1037,7 +1138,16 @@ static void ath10k_qmi_driver_event_work(struct work_struct *work)
 		list_del(&event->list);
 		spin_unlock(&qmi->event_lock);
 
+		if (qmi->state == ATH10K_QMI_STATE_DEINIT) {
+			kfree(event);
+			spin_lock(&qmi->event_lock);
+			continue;
+		}
+
 		switch (event->type) {
+		case ATH10K_QMI_EVENT_CAL_DOWNLOAD_IND:
+			ath10k_qmi_empty_cal_download(qmi, (unsigned long)event->data);
+			break;
 		case ATH10K_QMI_EVENT_SERVER_ARRIVE:
 			ath10k_qmi_event_server_arrive(qmi);
 			if (qmi->no_msa_ready_indicator) {
@@ -1104,6 +1214,7 @@ int ath10k_qmi_init(struct ath10k *ar, u32 msa_size)
 	INIT_LIST_HEAD(&qmi->event_list);
 	spin_lock_init(&qmi->event_lock);
 	INIT_WORK(&qmi->event_work, ath10k_qmi_driver_event_work);
+	INIT_DELAYED_WORK(&qmi->cal_report_work, ath10k_qmi_cal_report_work);
 
 	ret = qmi_add_lookup(&qmi->qmi_hdl, WLFW_SERVICE_ID_V01,
 			     WLFW_SERVICE_VERS_V01, 0);
@@ -1130,8 +1241,10 @@ int ath10k_qmi_deinit(struct ath10k *ar)
 	struct ath10k_qmi *qmi = ar_snoc->qmi;
 
 	qmi->state = ATH10K_QMI_STATE_DEINIT;
+	cancel_delayed_work_sync(&qmi->cal_report_work);
 	qmi_handle_release(&qmi->qmi_hdl);
 	cancel_work_sync(&qmi->event_work);
+	cancel_delayed_work_sync(&qmi->cal_report_work);
 	destroy_workqueue(qmi->event_wq);
 	kfree(qmi);
 	ar_snoc->qmi = NULL;
