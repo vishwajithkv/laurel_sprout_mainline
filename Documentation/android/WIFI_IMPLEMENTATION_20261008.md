@@ -84,7 +84,8 @@ checks the new sequencing and firmware path without entering the known CE
 stall. The module stays out of vendor modules.load and is explicitly loaded
 with dependencies and the selected parameter by laurel_wifi_start.
 
-Use the normal documented full-ROM build command, adding these make variables:
+Use the normal documented full-ROM build command. Export these variables before
+invoking it, or select them in wifi/product.mk for the corresponding profile:
 
 | LAUREL_WIFI_STAGE | Effect |
 | --- | --- |
@@ -134,7 +135,10 @@ kernel-tail.log.1 retain two 256 KiB tail chunks. Read tail .1 before tail
 current. Logcat remains independent with three 256 KiB rotating files.
 collector-status.txt reports monotonic read/write times, byte/loss counters,
 errno, reader/writer phases and raw waitpid statuses (-1 means not reaped).
-Phase key: idle0/open1/io2/flush3/finished4/error5. Inspect status with kernel
+Phase key: idle0/open1/io2/flush3/finished4/error5. Snapshot phase identifies
+space/status/logcat flush/state read/state flush/rename/boot-info work. Status
+is flushed before state reads; blocked snapshot phases are also sent to kmsg.
+Inspect status with kernel
 and logcat files, not kernel.log alone. State snapshots run in separate workers;
 one stalled worker is terminated after two seconds, with no new workers until
 it is reaped. A task stuck in uninterruptible I/O may ignore SIGKILL until its
