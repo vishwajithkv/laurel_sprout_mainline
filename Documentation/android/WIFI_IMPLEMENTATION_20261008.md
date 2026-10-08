@@ -100,6 +100,14 @@ full deferred startup passes. Properties ro.vendor.laurel.wifi.stage and
 ro.vendor.laurel.wifi.deferred identify the installed profile. These are
 build-time choices; the kernel parameter is read-only after module loading.
 A boot-only replacement does not update the launcher, properties or logger.
+The ROM fstab mounts active-slot modem firmware read-only at the firmware
+link target. The launcher refuses startup if modem.mdt is not readable.
+For a fresh sync, the existing manifest pins the earlier published kernel/DTS
+baseline. Select the new local committed revisions before building this
+candidate; update remote pins after publication. The QCOM dependency stays
+at its recorded upstream base; replay the two stored hardware-mainline-qcom
+patches plus the external-zstd visibility patch, checking applicability first.
+Those patches are already applied in this workspace.
 Rebuild a coherent full ROM containing kernel, DTB, modules and vendor/system_ext.
 Keep a working recovery and stop blind retries if the first CE read still stalls.
 

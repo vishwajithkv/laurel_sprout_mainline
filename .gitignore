@@ -41,6 +41,9 @@
 *.o
 *.o.*
 *.patch
+!Documentation/android/rom-patches/external-zstd/*.patch
+!Documentation/android/rom-patches/hardware-mainline-qcom/*.patch
+!Documentation/android/rom-patches/connectivity/0001-netbpfload-cache-elf-startup.patch
 *.pyc
 *.rmeta
 *.rpm
