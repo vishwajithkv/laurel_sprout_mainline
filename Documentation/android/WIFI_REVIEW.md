@@ -3,6 +3,88 @@
 
 ## Current result, 2026-10-08
 
+### 2026-10-09: live 5 GHz association after service-order correction
+
+The next device capture shows wificond starting before cfg80211 registers
+nl80211: family discovery and protocol-feature negotiation fail at startup.
+Later ath10k successfully registers wlan0, but wificond's stale discovery
+state continues to time out on GET_WIPHY. The split-dump correction alone
+does not address failed initial family discovery.
+
+Restarting only wificond after the radio registered, then enabling Android
+Wi-Fi, succeeds live: client interface setup completes and AIDL supplicant
+starts. Scanning produces results. Subsequent read-only status confirms a
+WPA3-SAE connection at 5180 MHz (802.11ac), an assigned IPv4 address and
+transmitted packets. This validates 5 GHz association/authentication/DHCP;
+2.4 GHz association and internet reachability were not checked. Network
+identifiers are retained only in local diagnostics under
+`out/wifi-check-20261009/`.
+
+The ROM helper now publishes `vendor.laurel.wifi.netlink_ready=1` after
+loading the full-mode ath10k dependencies, and its init action restarts
+wificond so family discovery happens after nl80211 registration. This
+persistent source correction requires a full ROM rebuild and reboot
+verification; the live restart does not persist across boot. Existing
+QMI-only mode still deliberately omits the usable radio; select full mode
+for the next build. No build or flash was performed here.
+
+### Build #24: CE startup succeeds; Android capability query fails
+
+Live ADB on `6.18.32-g798916714d88-dirty #24` confirms Android boot completion,
+the accepted WLAN resource `[mem 0x0c800000-0x0cffffff]`, and a completed
+CE0 SRRI read at 57.996100 seconds. CE initialization finishes at 58.003094,
+then HTC/HTT initialization succeeds and `wlan0`/`phy0` register. The maintainer
+reports that enabling Wi-Fi no longer stalls the display. The kernel chooses
+a random MAC because firmware reports an invalid one; device MAC provisioning
+remains a separate integration item.
+
+The current failure is in Android interface setup. Wificond repeatedly times
+out on `NL80211_CMD_GET_WIPHY` for ifindex 9/wlan0, and dumpsys records seven
+client-interface setup failures due to wificond. No supplicant setup failures
+are recorded. Read-only `iw dev` and `iw phy phy0 info` succeed and expose
+both 2.4 GHz and 5 GHz capabilities. This does not validate scanning or
+association. Full logs are retained locally at `out/wifi-ce-fixed-20261008/`.
+
+Wificond's GetWiphyIndex sets NLM_F_DUMP but omits SPLIT_WIPHY_DUMP, whereas
+its GetWiphyInfo already negotiates that flag. The
+[Linux 6.18 API specification](https://docs.kernel.org/6.18/netlink/specs/nl80211.html#get-wiphy)
+requires split-capable requests for wiphy dumps. The local source now adds the
+flag when the negotiated protocol supports it. This is a source-backed
+candidate for the capability-query failure, not a device-validated fix.
+Apply [the carried patch](rom-patches/wificond/0001-use-split-wiphy-index-dump.patch)
+to `system/connectivity/wificond` base
+`ae46055bcbddf8a3122833133c2ac87220cb2ef7` when recreating this workspace.
+It is already applied locally. A full ROM rebuild is needed to replace the
+running wificond; a kernel-only update cannot apply this userspace correction.
+No build, test, flash or live service modification was performed.
+
+### CE address mapping correction
+
+The compiled native DTB exposed a malformed WLAN resource. `/soc@0` uses
+one address cell and one size cell, but Wi-Fi used the four-cell value
+`<0x0 0x0c800000 0x0 0x800000>`. That describes two resources with base zero;
+the named first resource has size 0x0c800000. It does not describe an 8 MiB
+window at 0x0c800000. This supersedes the earlier assumption that the
+effective mainline MMIO resource matched stock.
+
+The devicetrees source now uses `reg = <0x0c800000 0x800000>`, matching
+Laurel's stock resource and the parent bus format. CE0 SRRI's offset
+0x240044 is valid in stock too: the correct physical access is 0x0ca40044,
+whereas the malformed resource sends it to 0x00240044. The failed logs'
+`0.wifi` device name is consistent with the zero-base decoding. See the
+[DT specification](https://devicetree-specification.readthedocs.io/en/stable/devicetree-basics.html)
+and [stock Trinket DTS](https://github.com/LineageOS/android_kernel_xiaomi_sm6125/blob/77d2912bc00eda19182a95a24bbe23543c792814/arch/arm64/boot/dts/qcom/trinket.dtsi).
+
+The kernel now rejects an incorrect Laurel membase before ioremap or CE
+access and logs the accepted resource. No CE index substitution or register
+offset change is needed. Both source fixes require a matching maintainer
+kernel/DTB rebuild. The existing binary still contains the malformed tuple;
+no build, test or flash was performed. Full-mode startup and 2.4/5 GHz
+association remain unverified after this correction. For that rebuild select
+`export LAUREL_WIFI_STAGE=full`; the existing QMI-only default does not exercise CE.
+
+### Results before the address correction
+
 Google ACK android17-6.18-2026-09_r5, Linux 6.18.32, is the base.
 The maintainer built and installed kernel `6.18.32-g634b198c40e1-dirty #23`.
 Android reaches boot completion in QMI-only mode. Full WLAN startup still
@@ -100,8 +182,9 @@ hardware results; no build, test or flash is performed for this publication.
 
 ## Next review boundary
 
-Compare actual SNOC resource votes/accessibility at FW_READY and HIF/CE entry
-with Laurel ICNSS, including SCM/MSA permissions and firmware/calibration
-handshake. Do not substitute zero CE indices, guessed voltage/clock votes or
-forced permissions for a demonstrated fix. Successful QMI negotiation alone
-is not successful ath10k registration or WLAN connectivity.
+Rebuild matching kernel and DTB with the address correction, verify the
+accepted WLAN resource is 0x0c800000/0x800000, then capture full-mode CE
+initialization and WLAN registration. Verify both bands by association.
+If the corrected mapping still fails, compare power and firmware/calibration
+handshakes with Laurel ICNSS. Successful QMI negotiation alone is not
+successful ath10k registration or WLAN connectivity.

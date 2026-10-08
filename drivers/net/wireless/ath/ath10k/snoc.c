@@ -1406,6 +1406,20 @@ static int ath10k_snoc_resource_init(struct ath10k *ar)
 		return -EINVAL;
 	}
 
+	/* Laurel's soc bus uses one address cell and one size cell. A
+	 * four-cell reg tuple silently creates a membase at physical zero;
+	 * the first CE read then targets the wrong peripheral and can hang
+	 * the CPU. Reject a stale/malformed board DT before touching MMIO.
+	 */
+	if (ar->laurel_hl3) {
+		if (res->start != 0x0c800000 || resource_size(res) != 0x800000) {
+			ath10k_err(ar, "invalid Laurel WLAN MMIO resource %pR; expected 0x0c800000/0x800000\n",
+				   res);
+			return -EINVAL;
+		}
+		ath10k_info(ar, "WLAN MMIO resource %pR\n", res);
+	}
+
 	ar_snoc->mem_pa = res->start;
 	ar_snoc->mem = devm_ioremap(&pdev->dev, ar_snoc->mem_pa,
 				    resource_size(res));
