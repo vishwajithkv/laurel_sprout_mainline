@@ -35,6 +35,9 @@ review/sign-off trailers and author dates are preserved. Local adaptations
 are separate changes: VDDIO probe errors propagate PTR_ERR, Laurel defers
 until its PMU is available, existing early-power references are balanced,
 and a read-only qmi_only parameter withholds core registration at FW_READY.
+QMI-only retains its negotiation power reference until driver removal, since
+there is no HIF owner to take over; full mode retains the stock FW_READY
+release boundary. Failure cleanup and removal release the reference.
 
 References:
 - https://patchew.org/linux/20260106-wcn3990-pwrctl-v2-0-0386204328be@oss.qualcomm.com/

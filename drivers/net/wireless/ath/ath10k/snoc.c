@@ -1462,6 +1462,15 @@ int ath10k_snoc_fw_indication(struct ath10k *ar, u64 type)
 			break;
 		}
 
+		/* Diagnostic mode has no HIF owner to take over. Retain the
+		 * negotiation reference until removal rather than powering down
+		 * firmware immediately after observing the checkpoint.
+		 */
+		if (ar->laurel_hl3 && qmi_only) {
+			ath10k_info(ar, "WLAN QMI-only checkpoint: FW_READY; CE registration withheld; negotiation power retained\n");
+			break;
+		}
+
 		/* Stock ICNSS releases its negotiation vote at FW_READY, before
 		 * probing the host driver. HIF power-up later acquires a fresh vote.
 		 * Do not cycle normal HIF references during firmware recovery.
@@ -1471,11 +1480,6 @@ int ath10k_snoc_fw_indication(struct ath10k *ar, u64 type)
 			if (ret)
 				return ret;
 			ath10k_info(ar, "WLAN boot power released at firmware-ready\n");
-		}
-
-		if (ar->laurel_hl3 && qmi_only) {
-			ath10k_info(ar, "WLAN QMI-only checkpoint: FW_READY; CE registration withheld\n");
-			break;
 		}
 
 		bus_params.dev_type = ATH10K_DEV_TYPE_LL;
