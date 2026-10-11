@@ -1,6 +1,13 @@
 <!-- SPDX-License-Identifier: GPL-2.0-only -->
 # Mi A3 Android Common Kernel 6.18
 
+Latest validation: build #33 restores SDAM SOC with the PM6125 RTC and
+progresses to 98% on laptop USB. See [PMIC_BUILD_33.md](PMIC_BUILD_33.md)
+for measurements and remaining charging limitations. Earlier candidate
+descriptions below record prior stages.
+
+Repositories, branches and revisions: [SOURCE_REPOSITORIES.md](SOURCE_REPOSITORIES.md).
+
 Latest SOC/completion candidate (2026-10-11): [PMIC_SOC_CONTINUITY.md](PMIC_SOC_CONTINUITY.md). It supersedes the historical filesystem persistence and read-only shutdown-state descriptions below. Source-only; maintainer build and validation required.
 
 Charging correction source (2026-10-09): see [PMIC_CHARGING_FIX.md](PMIC_CHARGING_FIX.md).
