@@ -9,7 +9,7 @@ documentation-only commits may follow it.
 
 | Checkout path | Repository and branch | Revision |
 | --- | --- | --- |
-| `kernel/mainline/sm6125-mainline-6.18` | [laurel_sprout_mainline: mainline-6.18-split](https://github.com/laurel-sprout-mainline/laurel_sprout_mainline/tree/mainline-6.18-split) | `2bb28ccb557cf7368d1776c821f505fc21b91560` |
+| `kernel/mainline/sm6125-mainline-6.18` | [laurel_sprout_mainline: mainline-6.18-split](https://github.com/laurel-sprout-mainline/laurel_sprout_mainline/tree/mainline-6.18-split) | `ea8344571b4499379b93463edb28ad49cdfcc7f6` |
 | `kernel/mainline/sm6125-mainline-6.18-devicetrees` | [kernel_xiaomi_laurel_sprout-devicetrees: mainline-6.18](https://github.com/laurel-sprout-mainline/kernel_xiaomi_laurel_sprout-devicetrees/tree/mainline-6.18) | `aa1e2bbe0a5dcb181eb09687e772e85540a31cf4` |
 | `kernel/mainline/sm6125-mainline-6.18-modules` | [kernel_xiaomi_laurel_sprout-modules: mainline-6.18](https://github.com/laurel-sprout-mainline/kernel_xiaomi_laurel_sprout-modules/tree/mainline-6.18) | `412259e19cfbb3baa05c5bd543ca073df09a5abc` |
 | `device/xiaomi/laurel_sprout` | [android_device_xiaomi_laurel_sprout: lineage-23.2-6.18-split](https://github.com/vishwajithkv/android_device_xiaomi_laurel_sprout/tree/lineage-23.2-6.18-split) | `e6db0ccccba3a8c132280d0ca3ede8c68da14d2d` |
