@@ -193,3 +193,6 @@ sphinx_*/
 
 # Required recovery integration carried for fresh Android checkouts.
 !Documentation/android/recovery-battery-ui-lock.patch
+
+# Required selection in the existing Android Health service on fresh syncs.
+!Documentation/android/rom-patches/health/*.patch

@@ -1,6 +1,13 @@
 <!-- SPDX-License-Identifier: GPL-2.0-only -->
 # Mi A3 Android Common Kernel 6.18
 
+Latest SOC/completion candidate (2026-10-11): [PMIC_SOC_CONTINUITY.md](PMIC_SOC_CONTINUITY.md). It supersedes the historical filesystem persistence and read-only shutdown-state descriptions below. Source-only; maintainer build and validation required.
+
+Charging correction source (2026-10-09): see [PMIC_CHARGING_FIX.md](PMIC_CHARGING_FIX.md).
+Includes QG cadence/full/recharge fixes, bounded QC/SMB1355 support and a patch
+to reuse the existing AIDL Health service. Unbuilt; complete ROM rebuild and
+maintainer validation required. No measured 18 W claim.
+
 Device: Xiaomi Mi A3 (laurel_sprout), SM6125 / Snapdragon 665 / Trinket.
 Branch: `mainline-6.18-split` (published unsplit baseline: `mainline-6.18`).
 
@@ -196,3 +203,5 @@ Wi-Fi source integration and its validation limits are documented in [WIFI.md](W
 
 Current publication and Wi-Fi failure: [WIFI_REVIEW.md](WIFI_REVIEW.md).
 Its patch inventory supersedes incomplete historical fresh-sync instructions.
+
+PMI632 battery/normal charging source integration and unfinished Quick Charge: [PMIC_BATTERY.md](PMIC_BATTERY.md).

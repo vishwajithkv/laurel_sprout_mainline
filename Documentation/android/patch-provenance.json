@@ -206,5 +206,60 @@
       ],
       "details": "WIFI_IMPLEMENTATION_20261008.md"
     }
+  },
+  "pmi632_power": {
+    "status": "Build #33: RTC-backed SOC restore and progress to 98% observed on laptop USB; wall-adapter QC, transient status changes and present capacity remain unverified",
+    "donor_repository": "https://github.com/mlainez/linux-msm8953",
+    "donor_revision": "59ae383591619d8fb55176cbc89a84de1cdcfb8b",
+    "review": "https://github.com/msm8953-mainline/linux/pull/242",
+    "author": "Marc Lainez <marc.lainez@gmail.com>",
+    "stock_repository": "https://github.com/LineageOS/android_kernel_xiaomi_sm6125",
+    "stock_revision": "77d2912bc00eda19182a95a24bbe23543c792814",
+    "second_reference_repository": "https://github.com/magicxavi/kernel_xiaomi_laurel_sprout",
+    "second_reference_branch": "16",
+    "second_reference_revision": "a9b94eac2508f1639ac6697f3ffba490a688327e",
+    "comparison": "PMIC_4_14_COMPARISON.md",
+    "details": "PMIC_BATTERY.md",
+    "adaptations": [
+      "Correct STATUS7 temperature bits, input-current sense scaling and QG subtype scaling",
+      "Thermistor read failures stop charging; stock hard thresholds and conservative polled JEITA",
+      "Read actual charger status instead of inferring charging from supply presence",
+      "Stock supplier OCV tables, battery ID selection and Celsius conversion",
+      "Select real Android/recovery health HAL; no fabricated battery lifetime metrics",
+      "Stock QG 20-second SOC step policy and conditional hold-full adaptation",
+      "Read-only b100 NVMEM history: stock signed mAh and eight little-endian cycle buckets; validate magic and capacity bounds",
+      "Clear charge inhibit to match Laurel stock's absent inhibit-threshold configuration; pending maintainer validation",
+      "Configure floating sources as SDP and DCD timeout to 300 ms to match both 4.14 Laurel boards; pending maintainer validation",
+      "Program and verify stock 4/128/100ms QG timing; capture partial FIFO/accumulator and external-sense transitions",
+      "Qualified full anchor and recharge latch; remaining-charge CHARGE_COUNTER semantics",
+      "Reuse existing AIDL Health supply exclusion via carried hardware/interfaces patch",
+      "Bounded QC2/QC3 with legacy QUSB2 DPDM ownership and physical ADC power supervision",
+      "Stock-wired SMB1355 I2C/IRQ port with primary-controlled current budgets and fail-safe SMB_EN shutoff"
+    ],
+    "limitations": [
+      "Latest kernel/DTB/Health/ROM candidate is unbuilt and unvalidated; no 18 W measurement or thermal fault-injection result",
+      "Open SOC estimation has no complete downstream ESR/impedance compensation parity",
+      "Historical SDAM FCC/cycles are not proof of present usable capacity; learning requires uninterrupted measurements and independent validation",
+      "No unique battery pack ID; replacement with same supplier requires state reset",
+      "Charging wake source retained while plugged in to protect software thermal polling"
+    ],
+    "charging_correction": "PMIC_CHARGING_FIX.md",
+    "soc_continuity_candidate": {
+      "date": "2026-10-11",
+      "reference_revision": "77d2912bc00eda19182a95a24bbe23543c792814",
+      "reference_files": [
+        "qpnp-qg.c",
+        "qg-reg.h",
+        "qg-sdam.c",
+        "qg-soc.c",
+        "smb5-lib.c"
+      ],
+      "attribution": [
+        "The Linux Foundation (2018-2020)",
+        "XiaoMi, Inc. (2020)"
+      ],
+      "status": "Build #33: SDAM restore and laptop SOC progress observed; broader discharge and full-charge validation pending",
+      "details": "PMIC_SOC_CONTINUITY.md"
+    }
   }
 }

@@ -16,6 +16,8 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/mutex.h>
 #include <linux/reset.h>
 #include <linux/slab.h>
 
@@ -467,6 +469,9 @@ struct qusb2_phy {
 	const struct qusb2_phy_cfg *cfg;
 	bool has_se_clk_scheme;
 	bool phy_initialized;
+	bool dpdm_enabled;
+	struct mutex dpdm_lock;
+	struct regulator_desc dpdm_desc;
 	enum phy_mode mode;
 };
 
@@ -746,7 +751,7 @@ disable_iface_clk:
 	return ret;
 }
 
-static int qusb2_phy_init(struct phy *phy)
+static int qusb2_phy_init_unlocked(struct phy *phy)
 {
 	struct qusb2_phy *qphy = phy_get_drvdata(phy);
 	const struct qusb2_phy_cfg *cfg = qphy->cfg;
@@ -789,6 +794,10 @@ static int qusb2_phy_init(struct phy *phy)
 		dev_err(&phy->dev, "failed to de-assert phy_reset, %d\n", ret);
 		goto disable_ahb_clk;
 	}
+
+	/* Release detection-only UTMI override before normal USB startup. */
+	if (qphy->dpdm_desc.ops)
+		writel(0, qphy->base + 0xc4);
 
 	/* Disable the PHY */
 	qusb2_setbits(qphy->base, cfg->regs[QUSB2PHY_PORT_POWERDOWN],
@@ -897,7 +906,7 @@ poweroff_phy:
 	return ret;
 }
 
-static int qusb2_phy_exit(struct phy *phy)
+static int qusb2_phy_exit_unlocked(struct phy *phy)
 {
 	struct qusb2_phy *qphy = phy_get_drvdata(phy);
 
@@ -918,6 +927,109 @@ static int qusb2_phy_exit(struct phy *phy)
 	qphy->phy_initialized = false;
 
 	return 0;
+}
+
+/* Stock phy-msm-qusb.c DPDM regulator, adapted to generic PHY lifetime.
+ * This is a line-ownership control, not the vdda-phy-dpdm analog supply.
+ * Only the legacy 0xb4 register layout has the verified UTMI offsets.
+ */
+static int qusb2_dpdm_enable(struct regulator_dev *rdev)
+{
+	struct qusb2_phy *qphy = rdev_get_drvdata(rdev);
+	int ret = 0;
+
+	mutex_lock(&qphy->dpdm_lock);
+	if (qphy->dpdm_enabled)
+		goto out;
+	ret = regulator_bulk_enable(ARRAY_SIZE(qphy->vregs), qphy->vregs);
+	if (ret)
+		goto out;
+	/* Never reset or override an initialized USB data PHY. */
+	if (!qphy->phy_initialized) {
+		ret = clk_prepare_enable(qphy->iface_clk);
+		if (ret)
+			goto disable_power;
+		ret = clk_prepare_enable(qphy->cfg_ahb_clk);
+		if (ret)
+			goto disable_iface;
+		ret = reset_control_assert(qphy->phy_reset);
+		if (!ret) {
+			usleep_range(100, 150);
+			ret = reset_control_deassert(qphy->phy_reset);
+		}
+		if (!ret) {
+			/* TERM_SELECT | XCVR_SELECT_FS | OP_MODE_NON_DRIVE */
+			writel(BIT(4) | BIT(2) | BIT(0), qphy->base + 0xc0);
+			/* UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL */
+			writel(BIT(7) | BIT(6), qphy->base + 0xc4);
+			qusb2_setbits(qphy->base, qphy->cfg->regs[QUSB2PHY_PORT_POWERDOWN],
+				      qphy->cfg->disable_ctrl);
+			readl(qphy->base + qphy->cfg->regs[QUSB2PHY_PORT_POWERDOWN]);
+		}
+		clk_disable_unprepare(qphy->cfg_ahb_clk);
+		clk_disable_unprepare(qphy->iface_clk);
+		if (ret)
+			goto disable_power;
+	}
+	qphy->dpdm_enabled = true;
+	goto out;
+disable_iface:
+	clk_disable_unprepare(qphy->iface_clk);
+disable_power:
+	regulator_bulk_disable(ARRAY_SIZE(qphy->vregs), qphy->vregs);
+out:
+	mutex_unlock(&qphy->dpdm_lock);
+	return ret;
+}
+
+static int qusb2_dpdm_disable(struct regulator_dev *rdev)
+{
+	struct qusb2_phy *qphy = rdev_get_drvdata(rdev);
+	int ret = 0;
+
+	mutex_lock(&qphy->dpdm_lock);
+	if (qphy->dpdm_enabled) {
+		ret = regulator_bulk_disable(ARRAY_SIZE(qphy->vregs), qphy->vregs);
+		if (!ret)
+			qphy->dpdm_enabled = false;
+	}
+	mutex_unlock(&qphy->dpdm_lock);
+	return ret;
+}
+
+static int qusb2_dpdm_is_enabled(struct regulator_dev *rdev)
+{
+	struct qusb2_phy *qphy = rdev_get_drvdata(rdev);
+
+	return READ_ONCE(qphy->dpdm_enabled);
+}
+
+static const struct regulator_ops qusb2_dpdm_ops = {
+	.enable = qusb2_dpdm_enable,
+	.disable = qusb2_dpdm_disable,
+	.is_enabled = qusb2_dpdm_is_enabled,
+};
+
+static int qusb2_phy_init(struct phy *phy)
+{
+	struct qusb2_phy *qphy = phy_get_drvdata(phy);
+	int ret;
+
+	mutex_lock(&qphy->dpdm_lock);
+	ret = qusb2_phy_init_unlocked(phy);
+	mutex_unlock(&qphy->dpdm_lock);
+	return ret;
+}
+
+static int qusb2_phy_exit(struct phy *phy)
+{
+	struct qusb2_phy *qphy = phy_get_drvdata(phy);
+	int ret;
+
+	mutex_lock(&qphy->dpdm_lock);
+	ret = qusb2_phy_exit_unlocked(phy);
+	mutex_unlock(&qphy->dpdm_lock);
+	return ret;
 }
 
 static const struct phy_ops qusb2_phy_gen_ops = {
@@ -1112,8 +1224,29 @@ static int qusb2_phy_probe(struct platform_device *pdev)
 		return ret;
 	}
 	qphy->phy = generic_phy;
+	mutex_init(&qphy->dpdm_lock);
 
 	phy_set_drvdata(generic_phy, qphy);
+
+	if (of_property_read_bool(dev->of_node, "qcom,provide-dpdm")) {
+		struct regulator_config rcfg = { .dev = dev, .driver_data = qphy };
+		struct regulator_dev *rdev;
+		struct device_node *node = of_get_child_by_name(dev->of_node, "dpdm");
+
+		if (!node)
+			return dev_err_probe(dev, -EINVAL, "Missing DPDM regulator node\n");
+		of_node_put(node);
+		if (qphy->cfg->regs[QUSB2PHY_PORT_POWERDOWN] != 0xb4)
+			return dev_err_probe(dev, -EINVAL, "Unsupported DPDM register layout\n");
+		qphy->dpdm_desc.name = "qusb2-dpdm";
+		qphy->dpdm_desc.of_match = "dpdm";
+		qphy->dpdm_desc.type = REGULATOR_VOLTAGE;
+		qphy->dpdm_desc.owner = THIS_MODULE;
+		qphy->dpdm_desc.ops = &qusb2_dpdm_ops;
+		rdev = devm_regulator_register(dev, &qphy->dpdm_desc, &rcfg);
+		if (IS_ERR(rdev))
+			return dev_err_probe(dev, PTR_ERR(rdev), "Failed to register DPDM\n");
+	}
 
 	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
 

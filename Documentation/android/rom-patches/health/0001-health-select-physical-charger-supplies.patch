@@ -1,0 +1,28 @@
+diff --git a/health/aidl/default/main.cpp b/health/aidl/default/main.cpp
+index 03b2ecb..97a3600 100644
+--- a/health/aidl/default/main.cpp
++++ b/health/aidl/default/main.cpp
+@@ -15,6 +15,8 @@
+  */
+ 
+ #include <android-base/logging.h>
++#include <android-base/properties.h>
++#include <android-base/strings.h>
+ #include <android/binder_interface_utils.h>
+ #include <health-impl/Health.h>
+ #include <health/utils.h>
+@@ -46,6 +48,14 @@ int main(int argc, char** argv) {
+     // make a default health service
+     auto config = std::make_unique<healthd_config>();
+     ::android::hardware::health::InitHealthdConfig(config.get());
++    // Connector protocol supplies can duplicate a physical charger. Keep
++    // charging policy in its kernel driver and select supplies explicitly.
++    // Empty by default; applies to the existing recovery service as well.
++    for (const auto& name : android::base::Split(
++                 android::base::GetProperty("ro.vendor.health.ignore_supply_names", ""), ",")) {
++        const auto trimmed = android::base::Trim(name);
++        if (!trimmed.empty()) config->ignorePowerSupplyNames.emplace_back(trimmed.c_str());
++    }
+     auto binder = ndk::SharedRefBase::make<Health>(gInstanceName, std::move(config));
+ 
+     if (argc >= 2 && argv[1] == gChargerArg) {

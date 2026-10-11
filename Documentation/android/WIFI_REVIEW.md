@@ -81,7 +81,11 @@ offset change is needed. Both source fixes require a matching maintainer
 kernel/DTB rebuild. The existing binary still contains the malformed tuple;
 no build, test or flash was performed. Full-mode startup and 2.4/5 GHz
 association remain unverified after this correction. For that rebuild select
-`export LAUREL_WIFI_STAGE=full`; the existing QMI-only default does not exercise CE.
+`export LAUREL_WIFI_STAGE=full` overrides an older diagnostic shell setting.
+Full mode is now the ROM default; QMI-only deliberately does not exercise CE
+or register wlan0. The 2026-10-09 battery-validation build #27 selected
+qmi-only, reached FW_READY and withheld CE registration; this explains its
+unavailable Wi-Fi without evidence of a new battery-driver-induced WLAN stall.
 
 ### Results before the address correction
 

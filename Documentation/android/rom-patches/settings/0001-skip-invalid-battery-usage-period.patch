@@ -1,0 +1,19 @@
+diff --git a/src/com/android/settings/fuelgauge/batteryusage/DataProcessor.java b/src/com/android/settings/fuelgauge/batteryusage/DataProcessor.java
+index b7f629a..91c0984 100644
+--- a/src/com/android/settings/fuelgauge/batteryusage/DataProcessor.java
++++ b/src/com/android/settings/fuelgauge/batteryusage/DataProcessor.java
+@@ -1074,6 +1074,14 @@ public final class DataProcessor {
+             final long endTime,
+             final int userId,
+             final String callingPackage) {
++        // Persisted usage timestamps can be ahead of the current wall clock
++        // after a clock correction. There are no new events in that interval;
++        // skip it rather than passing an invalid period to UsageEventsQuery.
++        if (startTime < 0 || endTime < startTime) {
++            Log.w(TAG, "Skipping invalid app usage period for user " + userId
++                    + ": " + startTime + " to " + endTime);
++            return null;
++        }
+         final long start = System.currentTimeMillis();
+         UsageEvents events = null;
+         try {

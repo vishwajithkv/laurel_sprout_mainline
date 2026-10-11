@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: Apache-2.0
+// Export only the private QG UAPI, never the complete kernel header tree.
+cc_library_headers {
+    name: "laurel_qg_uapi",
+    vendor_available: true,
+    recovery_available: true,
+    export_include_dirs: ["android/qg-uapi"],
+    visibility: ["//device/xiaomi/laurel_sprout/power/batteryd"],
+}

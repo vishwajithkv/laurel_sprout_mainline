@@ -1,0 +1,140 @@
+{
+  "note": "Source imports from the donor head include these authored changes. Local adaptations are described in PMIC_BATTERY.md; no local commits claimed by this inventory.",
+  "changes": [
+    {
+      "commit": "eef9ef87a90c1442e9a923b0d1fbf3db55b7caab",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T16:46:37Z"
+      },
+      "message": "iio: adc: qcom-spmi-adc5: add missing ADC5_BAT_THERM_100K_PU channel\n\nThe adc5_chans_pmic[] array is missing an entry for ADC5_BAT_THERM_100K_PU\n(channel 0x4a). The zero-initialized entry has info_mask=0 and type=IIO_VOLTAGE,\nwhich means iio_read_channel_processed() returns -EINVAL for this channel since\nBIT(IIO_CHAN_INFO_PROCESSED) is not set.\n\nThis affects PMICs like the PMI632 that use this channel for battery thermistor\nreadings via a 100K pull-up. Without this fix, battery temperature cannot be\nread through the IIO subsystem.\n\nAdd the missing channel definition with SCALE_HW_CALIB_THERM_100K_PULLUP\nscaling, consistent with the other thermistor channels in the array.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/eef9ef87a90c1442e9a923b0d1fbf3db55b7caab"
+    },
+    {
+      "commit": "47f207241bad6d4ea9b77553818c08c1a2bf90b8",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T08:03:53Z"
+      },
+      "message": "dt-bindings: power: supply: add Qualcomm PMI632 QGauge fuel gauge\n\nAdd device tree binding documentation for the QGauge (QG) fuel gauge\nblock found in the Qualcomm PMI632 PMIC. This hardware provides battery\nvoltage and current FIFO sampling, open circuit voltage measurement,\nand coulomb counting for battery state estimation.\n\nThe binding requires a monitored-battery phandle (simple-battery node)\nfor OCV-to-capacity lookup tables, and optionally accepts an IIO channel\nfor battery thermistor temperature readings.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/47f207241bad6d4ea9b77553818c08c1a2bf90b8"
+    },
+    {
+      "commit": "d87dc74f535a83f0b477ad29c815f910f1c86b8d",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T08:04:21Z"
+      },
+      "message": "power: supply: add Qualcomm PMI632 QGauge fuel gauge driver\n\nAdd a driver for the QGauge (QG) fuel gauge block in the Qualcomm\nPMI632 PMIC. The QG hardware provides FIFO-based voltage and current\nsampling, open circuit voltage (OCV) measurement during sleep states,\nand accumulator-based coulomb counting.\n\nThis is a minimal mainline implementation that exposes battery state\nvia the power_supply subsystem:\n\n  - Voltage from last ADC register and FIFO averaging\n  - Current from burst average register with hold/release protocol\n  - OCV from power-on (S7) and sleep (S3) hardware measurements\n  - Temperature via IIO ADC channel (battery thermistor)\n  - SOC computed in-kernel using power_supply_batinfo_ocv2cap()\n    with OCV-to-capacity tables from the monitored-battery DT node\n\nThree IRQs are handled: fifo-done (voltage update), good-ocv (new OCV\nmeasurement available), and batt-missing (battery presence change).\n\nThe downstream Android driver (~14,000 lines) relies on a userspace\ndaemon via chardev for SOC calculation and uses several Android-only\nframeworks (pmic-voter, qpnp-vadc, of_batterydata). This driver\nreplaces all of that with standard kernel subsystem APIs.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/d87dc74f535a83f0b477ad29c815f910f1c86b8d"
+    },
+    {
+      "commit": "6d59547723c03861ef09f359c38c5e434edcf955",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T08:04:42Z"
+      },
+      "message": "arm64: dts: qcom: pmi632: add QGauge fuel gauge node\n\nAdd the QGauge (QG) fuel gauge device node at register offset 0x4800\nin the PMI632 PMIC. The node defines all 7 hardware interrupts\n(batt-missing, vbat-low, vbat-empty, fifo-done, good-ocv,\nfsm-state-chg, event) and is disabled by default, to be enabled\nby board-level DTS files that provide a monitored-battery reference.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/6d59547723c03861ef09f359c38c5e434edcf955"
+    },
+    {
+      "commit": "8800e878c87409ec5fb74f9b8595e8af2599e4f0",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T09:24:21Z"
+      },
+      "message": "dt-bindings: power: supply: add Qualcomm PMI632 SMB5 charger\n\nAdd device tree binding documentation for the Qualcomm PMI632 SMB5\ncharger peripheral. The PMI632 integrates an SMB5-class switch-mode\nbattery charger that supports USB charging with automatic input current\nlimiting (AICL) and Type-C current detection.\n\nThe binding requires charger, DCDC, battery interface, USB input, and\nmiscellaneous register blocks, along with interrupt descriptors for USB\nplug events, battery over-voltage, watchdog bark, and ICL changes. USB\ninput voltage and current are read via SPMI ADC5 IIO channels.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/8800e878c87409ec5fb74f9b8595e8af2599e4f0"
+    },
+    {
+      "commit": "54c4d0c459db7ec2ef6ce0d4f06df8186e24c356",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T09:24:39Z"
+      },
+      "message": "power: supply: add Qualcomm PMI632 SMB5 charger driver\n\nAdd a driver for the SMB5-class charger integrated in the Qualcomm\nPMI632 PMIC. This is a standalone implementation separate from the\nSMB2 charger driver (qcom_pmi8998_charger.c) due to significant\nregister layout differences in the SMB5 variant:\n\n- Completely reordered charge status enumeration\n- ICL_STATUS and POWER_PATH_STATUS relocated from MISC to DCDC block\n- Different current scaling (50mA vs 25mA steps)\n- Different float voltage encoding (10mV steps from 3600mV)\n- BAT_OV status bit repositioned\n\nThe driver supports:\n- Battery status, voltage, current, and charge type reporting\n- USB online detection with automatic input current limit (AICL)\n- Configurable charge current, float voltage, and input current limit\n- Battery over-voltage protection\n- Watchdog bark handling\n- USB input voltage/current monitoring via SPMI ADC5 IIO channels\n\nBattery parameters (charge-full-design-microamp-hours, voltage-max,\nvoltage-min) are read from a monitored-battery phandle using the\nstandard simple-battery binding. Type-C handling is left to the\nseparate pmi632_typec driver.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/54c4d0c459db7ec2ef6ce0d4f06df8186e24c356"
+    },
+    {
+      "commit": "5bfabeca60ac66b2d09f2a345c20967bfc10610e",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T09:25:15Z"
+      },
+      "message": "arm64: dts: qcom: pmi632: add SMB5 charger node\n\nAdd the SMB5 charger device node for the PMI632 PMIC. The charger\nblock resides at register base 0x1000 on SPMI USID 2 and uses four\ninterrupts: USB plug/unplug detection, battery over-voltage, watchdog\nbark, and USB input current limit change.\n\nUSB input voltage and current are monitored via the existing SPMI ADC5\nchannels (ADC5_USB_IN_I and ADC5_USB_IN_V_16).\n\nThe node is disabled by default and must be enabled per-board with a\nmonitored-battery phandle.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/5bfabeca60ac66b2d09f2a345c20967bfc10610e"
+    },
+    {
+      "commit": "01ad5ae7992f40d6a49f0ea8c8e955a60904af27",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-13T18:40:59Z"
+      },
+      "message": "power: supply: qcom_pmi632_qg: fix current_now sign convention\n\nThe PMI632 QG hardware reports current with positive values for\ndischarge and negative for charge. The power_supply sysfs ABI\n(Documentation/ABI/testing/sysfs-class-power) specifies the opposite:\npositive for charging, negative for discharging.\n\nNegate the raw reading to match the ABI, so that current_now is\npositive when the battery is charging and status reports Charging.\n\nSigned-off-by: Marc Lainez <marc.lainez@gmail.com>",
+      "url": "https://github.com/msm8953-mainline/linux/commit/01ad5ae7992f40d6a49f0ea8c8e955a60904af27"
+    },
+    {
+      "commit": "0abd3166586409374abd8672835f9a3468600114",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-17T09:04:15Z"
+      },
+      "message": "power: supply: qcom_pmi632_qg: use fwnode API for power supply config\n\nThe power_supply_config struct replaced the of_node member with fwnode.\nUse dev_fwnode() helper to obtain the firmware node instead.",
+      "url": "https://github.com/msm8953-mainline/linux/commit/0abd3166586409374abd8672835f9a3468600114"
+    },
+    {
+      "commit": "c8af6468e9a4828de0ebb14a48d10854edbc7c7a",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-17T09:49:02Z"
+      },
+      "message": "power: supply: qcom_pmi632_charger: use fwnode API for power supply config\n\nThe power_supply_config struct replaced the of_node member with fwnode.\nUse dev_fwnode() helper to obtain the firmware node instead.",
+      "url": "https://github.com/msm8953-mainline/linux/commit/c8af6468e9a4828de0ebb14a48d10854edbc7c7a"
+    },
+    {
+      "commit": "59ae383591619d8fb55176cbc89a84de1cdcfb8b",
+      "author": {
+        "name": "Marc Lainez",
+        "email": "marc.lainez@gmail.com",
+        "date": "2026-03-17T10:21:57Z"
+      },
+      "message": "power: supply: qcom_pmi632_charger: add missing mod_devicetable.h include\n\nThe of_device_id struct definition lives in linux/mod_devicetable.h which\nwas not explicitly included, causing an incomplete type error.",
+      "url": "https://github.com/msm8953-mainline/linux/commit/59ae383591619d8fb55176cbc89a84de1cdcfb8b"
+    }
+  ],
+  "open_soc_candidate": {
+    "status": "unbuilt working-tree adaptation; hardware validation pending",
+    "kernel_uapi": "include/uapi/linux/qcom_qg.h",
+    "rom_service": "device/xiaomi/laurel_sprout/power/batteryd",
+    "stock_source": "LineageOS/android_kernel_xiaomi_sm6125@77d2912bc00eda19182a95a24bbe23543c792814",
+    "second_reference": "magicxavi/kernel_xiaomi_laurel_sprout@a9b94eac2508f1639ac6697f3ffba490a688327e",
+    "attribution": "Original donor copyright/authorship retained. New UAPI, SOC service and 6.18 adaptations must be separate commits from original donor imports; do not attribute new code to donor authors.",
+    "adaptations": [
+      "IRQ-latched FIFO relative charge accounting and gap reporting",
+      "Versioned single-writer SOC interface",
+      "Android and recovery open SOC policy and stock profile table transformation",
+      "Explicit VBAT fallback, 99 percent SOC recharge and PMI632 recharge workaround",
+      "Qualified full, fractional SOC persistence and new learning candidate",
+      "Stock sampling configuration and partial accumulator capture at suspend/sense transitions",
+      "Existing AIDL Health supply selection, preserving HAL instance and binary",
+      "Bounded QC2/QC3 and legacy QUSB2 DPDM ownership",
+      "Stock SMB1355 initialization and Laurel wiring with mainline budget adapter"
+    ],
+    "not_implemented": [
+      "Hardware ESR/impedance compensation parity",
+      "Maintainer compile/SELinux/hardware validation of the latest source"
+    ],
+    "documentation": "Documentation/android/PMIC_SOC_SERVICE.md",
+    "charging_correction": "Documentation/android/PMIC_CHARGING_FIX.md"
+  }
+}
